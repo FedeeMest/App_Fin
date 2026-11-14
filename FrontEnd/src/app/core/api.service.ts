@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { Categoria, CompraCuotas, Cuenta, Pagina, Resumen, ResumenCuotas, Transaccion } from './models';
+import { Calendario, Categoria, CompraCuotas, Cuenta, Pagina, Recurrente, Resumen, ResumenCuotas, Transaccion } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -29,4 +29,10 @@ export class ApiService {
   resumenCuotas(meses = 12) { return this.http.get<ResumenCuotas>(`${this.base}/cuotas/resumen`, { params: { meses } }); }
   crearCompraCuotas(d: unknown) { return this.http.post(`${this.base}/cuotas`, d); }
   borrarCompraCuotas(id: number) { return this.http.delete(`${this.base}/cuotas/${id}`); }
+
+  recurrentes() { return this.http.get<Recurrente[]>(`${this.base}/recurrentes`); }
+  crearRecurrente(d: unknown) { return this.http.post(`${this.base}/recurrentes`, d); }
+  pausarRecurrente(id: number, activo: boolean) { return this.http.patch(`${this.base}/recurrentes/${id}/activo`, { activo }); }
+  borrarRecurrente(id: number) { return this.http.delete(`${this.base}/recurrentes/${id}`); }
+  calendario(mes: string) { return this.http.get<Calendario>(`${this.base}/calendario`, { params: { mes } }); }
 }

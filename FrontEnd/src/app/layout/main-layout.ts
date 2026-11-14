@@ -34,12 +34,15 @@ import { AuthService } from '../core/auth.service';
 
       <!-- Bottom nav (móvil) -->
       <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
-        @for (l of links; track l.path) {
+        @for (l of linksMovil; track l.path) {
           <a [routerLink]="l.path" routerLinkActive="text-brand-700 font-semibold"
              class="flex flex-col items-center py-2 text-xs text-slate-500">
             <span class="text-xl leading-none">{{ l.icon }}</span>{{ l.label }}
           </a>
         }
+        <a routerLink="/mas" routerLinkActive="text-brand-700 font-semibold" class="flex flex-col items-center py-2 text-xs text-slate-500">
+          <span class="text-xl leading-none">⋯</span>Más
+        </a>
       </nav>
     </div>
   `,
@@ -47,10 +50,12 @@ import { AuthService } from '../core/auth.service';
 export class MainLayout {
   auth = inject(AuthService);
   links = [
-    { path: '/inicio', label: 'Inicio', icon: '🏠' },
-    { path: '/movimientos', label: 'Movimientos', icon: '🧾' },
-    { path: '/cuotas', label: 'Cuotas', icon: '💳' },
-    { path: '/cuentas', label: 'Cuentas', icon: '🏦' },
-    { path: '/categorias', label: 'Categ.', icon: '🏷️' },
+    { path: '/inicio', label: 'Inicio', icon: '🏠', movil: true },
+    { path: '/movimientos', label: 'Movim.', icon: '🧾', movil: true },
+    { path: '/calendario', label: 'Calendario', icon: '📅', movil: true },
+    { path: '/cuotas', label: 'Cuotas', icon: '💳', movil: true },
+    { path: '/cuentas', label: 'Cuentas', icon: '🏦', movil: false },
+    { path: '/categorias', label: 'Categorías', icon: '🏷️', movil: false },
   ];
+  linksMovil = this.links.filter((l) => l.movil);
 }

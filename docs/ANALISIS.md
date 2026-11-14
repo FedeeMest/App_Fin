@@ -50,7 +50,7 @@ Montos: `decimal(14,2)`; nunca `number` flotante.
 | Categoria | nombre, tipo, icono, color, padre | Hecho |
 | Transaccion | fecha, monto, tipo, cuenta, categoria, nota, cuenta_destino | Hecho |
 | CompraCuotas | descripción, monto_total, cantidad_cuotas, fecha_primera_cuota, cuenta, categoría | Hecho |
-| Recurrente | monto, frecuencia, proxima_fecha, cuenta, categoria | Pendiente |
+| Recurrente | descripción, tipo, monto, frecuencia, fecha_inicio, fecha_fin, activo, cuenta, categoría | Hecho |
 | Presupuesto | periodo, categoria, monto_limite | Pendiente |
 | Meta / AporteMeta | objetivo, fecha_limite, aportes | Pendiente |
 | TipoCambio | fecha, moneda_origen, moneda_destino, tasa | Pendiente |
@@ -88,3 +88,12 @@ Reglas: la cuota k vence `fecha_primera_cuota + (k-1)` meses (si el día no exis
 una cuota se considera paga cuando ya venció; la última cuota absorbe el redondeo para que la suma sea exacta.
 Nada de esto se guarda: se calcula a la fecha de hoy. Pendiente: generar el gasto en Movimientos al vencer cada
 cuota y marcar cuotas pagadas manualmente.
+
+## 8. Recurrentes y calendario
+
+`/api/recurrentes`: alta, listado (con próxima fecha), pausar/reanudar y baja. Frecuencias semanal, mensual y anual;
+las fechas se calculan desde `fecha_inicio` (un recurrente del día 31 cae el último día en meses cortos).
+`/api/calendario?mes=YYYY-MM` junta recurrentes activos y vencimientos de cuotas, con ingresos, pagos y balance previstos.
+Frontend: pantalla Calendario (grilla mensual con puntos por día, detalle del día y gestión de fijos) y pantalla "Más"
+en móvil para Cuentas, Categorías y cerrar sesión.
+Pendiente: generar el movimiento real al llegar la fecha y avisos de próximos pagos.

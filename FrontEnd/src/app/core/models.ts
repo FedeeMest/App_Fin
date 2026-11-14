@@ -21,3 +21,16 @@ export interface ResumenCuotas {
   mes_actual: string; total_mes_actual: number; deuda_total: number; compras_activas: number;
   proyeccion: { mes: string; total: number }[];
 }
+
+export type Frecuencia = 'SEMANAL' | 'MENSUAL' | 'ANUAL';
+export interface Recurrente {
+  id: number; descripcion: string; tipo: TipoCategoria; monto: number; frecuencia: Frecuencia;
+  fecha_inicio: string; fecha_fin: string | null; activo: boolean; proxima_fecha: string | null;
+  cuenta: { id: number; nombre: string } | null; categoria: { id: number; nombre: string } | null;
+}
+export interface EventoCalendario {
+  fecha: string; tipo: TipoCategoria; origen: 'RECURRENTE' | 'CUOTA'; descripcion: string; monto: number; detalle?: string;
+}
+export interface Calendario {
+  mes: string; eventos: EventoCalendario[]; total_ingresos: number; total_gastos: number; balance_previsto: number;
+}
