@@ -11,12 +11,13 @@ Inspirada en [Moneo](https://moneofinance.com/) y construida sobre la misma base
 |---|---|
 | Backend | Node + Express 5, TypeScript (ESM), MikroORM 6, MySQL |
 | Auth | JWT + bcryptjs, helmet, CORS por lista, rate-limit |
-| Frontend (próximo paso) | Angular 21 + Tailwind + chart.js |
+| Frontend | Angular 21 + Tailwind 3 + chart.js (responsive) |
 
 ## Estructura
 
 ```
 BackEnd/   API REST (módulos: auth, usuario, cuenta, categoria, transaccion)
+FrontEnd/  Angular (login, inicio, movimientos, cuentas, categorías)
 docs/      Documentación (ver docs/ANALISIS.md)
 ```
 
@@ -30,3 +31,11 @@ pnpm start:dev
 ```
 
 Ver el análisis y el roadmap en [docs/ANALISIS.md](docs/ANALISIS.md).
+
+## Puesta en marcha (frontend)
+
+```bash
+cd FrontEnd
+pnpm install
+pnpm start   # http://localhost:4200 (API en http://localhost:3000/api)
+```

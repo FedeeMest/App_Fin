@@ -1,0 +1,25 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { environment } from '../../environments/environment';
+import { Categoria, Cuenta, Pagina, Resumen, Transaccion } from './models';
+
+@Injectable({ providedIn: 'root' })
+export class ApiService {
+  private http = inject(HttpClient);
+  private base = environment.apiUrl;
+
+  cuentas() { return this.http.get<Cuenta[]>(`${this.base}/cuentas`); }
+  crearCuenta(d: { nombre: string; tipo: string; saldo_inicial: number }) { return this.http.post(`${this.base}/cuentas`, d); }
+
+  categorias() { return this.http.get<Categoria[]>(`${this.base}/categorias`); }
+  crearCategoria(d: { nombre: string; tipo: string }) { return this.http.post(`${this.base}/categorias`, d); }
+
+  transacciones(f: { page?: number; limit?: number; desde?: string; hasta?: string; cuentaId?: number; categoriaId?: number } = {}) {
+    let p = new HttpParams();
+    for (const [k, v] of Object.entries(f)) if (v !== undefined && v !== null && v !== '') p = p.set(k, String(v));
+    return this.http.get<Pagina<Transaccion>>(`${this.base}/transacciones`, { params: p });
+  }
+  crearTransaccion(d: unknown) { return this.http.post(`${this.base}/transacciones`, d); }
+  borrarTransaccion(id: number) { return this.http.delete(`${this.base}/transacciones/${id}`); }
+  resumen(mes: string) { return this.http.get<Resumen>(`${this.base}/transacciones/resumen`, { params: { mes } }); }
+}

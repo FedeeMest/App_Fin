@@ -66,8 +66,14 @@ Toda consulta filtra por `usuario` del token.
 4. Recurrentes + calendario, presupuestos, resumen mensual.
 5. Metas de ahorro, multimoneda, exportación PDF/Excel, hábitos.
 
-## 5. Decisiones abiertas
+## 5. Decisiones tomadas
 
-- Solo personal o multiusuario con registro abierto (el código ya soporta multiusuario).
-- Monedas desde el inicio (ARS/USD) y fuente de cotización.
-- Web responsive o app móvil.
+- **Multiusuario** con registro abierto (todas las tablas tienen dueño).
+- **Solo pesos argentinos (ARS)** por ahora; `TipoCambio` queda para más adelante.
+- **Responsive** (móvil primero): menú inferior en celular, barra lateral en escritorio; Angular + Tailwind.
+
+## 6. Frontend (FrontEnd/)
+
+Angular 21 standalone + Tailwind 3 + chart.js. Pantallas: login/registro, inicio (saldo, resumen mensual,
+gráfico por categoría), movimientos (alta en hoja inferior, paginación), cuentas, categorías.
+Entornos: `environment.ts` (dev) y `environment.prod.ts` (reemplazo en build de producción).

@@ -76,8 +76,10 @@ transaccionRouter.get('/resumen', async (req: AuthRequest, res: Response) => {
   const em = orm.em.fork();
   const mes = String(req.query.mes ?? new Date().toISOString().slice(0, 7));
   if (!/^\d{4}-\d{2}$/.test(mes)) return res.status(400).json({ message: 'mes debe ser YYYY-MM' });
+  const [anio, nroMes] = mes.split('-').map(Number);
+  const ultimoDia = new Date(anio, nroMes, 0).getDate(); // evita fechas inválidas como 02-31
   const txs = await em.find(Transaccion, {
-    usuario: req.userId, fecha: { $gte: `${mes}-01`, $lte: `${mes}-31` },
+    usuario: req.userId, fecha: { $gte: `${mes}-01`, $lte: `${mes}-${String(ultimoDia).padStart(2, '0')}` },
   }, { populate: ['categoria'] });
 
   let ingresos = 0, gastos = 0;
