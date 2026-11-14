@@ -4,7 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { RequestContext } from '@mikro-orm/core';
-import { orm, syncSchema } from './shared/db/orm.js';
+import { orm, migrar } from './shared/db/orm.js';
 import { authRouter } from './auth/auth.routes.js';
 import { cuentaRouter } from './cuenta/cuenta.routes.js';
 import { categoriaRouter } from './categoria/categoria.routes.js';
@@ -45,7 +45,7 @@ app.get('/', (_req, res) => res.send('App_Fin API funcionando'));
 app.use((_req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
 
 async function start() {
-  await syncSchema();
+  await migrar();
   const port = process.env.PORT || 3000;
   app.listen(port, () => console.log(`Servidor en puerto ${port}`));
 }

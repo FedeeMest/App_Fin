@@ -1,6 +1,7 @@
 import { MikroORM } from '@mikro-orm/core';
 import { MySqlDriver } from '@mikro-orm/mysql';
 import { SqlHighlighter } from '@mikro-orm/sql-highlighter';
+import { Migrator } from '@mikro-orm/migrations';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -24,11 +25,22 @@ export const orm = await MikroORM.init({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),
   highlighter: new SqlHighlighter(),
+  extensions: [Migrator],
+  migrations: {
+    tableName: 'mikro_orm_migrations',
+    path: 'dist/src/migrations',      // migraciones compiladas (lo que corre el servidor)
+    pathTs: 'src/migrations',         // código fuente
+    glob: '!(*.d).{js,ts}',
+    snapshot: false,                  // las nuevas migraciones se calculan contra la base real
+    transactional: true,
+    emit: 'ts',
+  },
   debug: !isProduction,
   driverOptions: isProduction ? { connection: { ssl: { rejectUnauthorized: false } } } : undefined,
 });
 
-// TODO: reemplazar por migraciones de MikroORM antes de usar datos reales.
-export const syncSchema = async () => {
-  await orm.getSchemaGenerator().updateSchema({ safe: true });
+/** Aplica las migraciones pendientes. Se ejecuta al iniciar el servidor. */
+export const migrar = async () => {
+  const aplicadas = await orm.migrator.up();
+  if (aplicadas.length) console.log(`Migraciones aplicadas: ${aplicadas.map((m) => m.name).join(', ')}`);
 };

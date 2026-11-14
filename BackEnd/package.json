@@ -7,10 +7,13 @@
     "start:dev": "tsc-watch --noClear -p tsconfig.json --onSuccess \"node dist/src/app.js\"",
     "build": "tsc",
     "test": "bash test/run-integration.sh",
-    "start": "node dist/src/app.js"
+    "start": "node dist/src/app.js",
+    "migration:create": "node dist/src/shared/db/crear-migracion.js",
+    "migration:up": "node -e \"import('./dist/src/shared/db/orm.js').then(async m=>{await m.migrar();await m.orm.close()})\""
   },
   "dependencies": {
     "@mikro-orm/core": "^6.6.2",
+    "@mikro-orm/migrations": "^6.6.2",
     "@mikro-orm/mysql": "^6.6.2",
     "@mikro-orm/sql-highlighter": "^1.0.1",
     "bcryptjs": "^3.0.3",

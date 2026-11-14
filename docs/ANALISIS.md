@@ -121,3 +121,12 @@ borrar el origen conserva el movimiento (`deleteRule: set null`). Los pagos venc
 `cd BackEnd && pnpm test` ejecuta `test/run-integration.sh`: levanta la API real sobre SQLite en memoria (sin MySQL) y
 corre ~55 chequeos de punta a punta (auth, aislamiento entre usuarios, saldos, cuotas, calendario, confirmación y
 presupuestos). Limitación: SQLite no reemplaza una prueba contra MySQL (tipos y índices pueden diferir levemente).
+
+## 12. Migraciones
+
+Se reemplazó `updateSchema` al arrancar por migraciones de MikroORM (`@mikro-orm/migrations`). `Migration20261114000000_inicial`
+crea todas las tablas (generada con el generador de esquema de MikroORM para MySQL; se verificó que coincide sentencia por
+sentencia con las entidades). Las migraciones se aplican al iniciar el servidor (`migrar()` en `shared/db/orm.ts`) y las nuevas
+se generan con `pnpm migration:create`, comparando contra la base real (`snapshot: false`).
+Verificado: coincidencia con las entidades, descubrimiento por el migrador y generación de archivos nuevos (sobre SQLite).
+Sin verificar: la ejecución de la migración inicial sobre un MySQL real (no hay MySQL en el entorno de desarrollo del asistente).

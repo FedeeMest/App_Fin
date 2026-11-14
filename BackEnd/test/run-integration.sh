@@ -16,8 +16,24 @@ require('fs').writeFileSync('$TMP/package.json',JSON.stringify({name:'it',type:'
 cat > "$TMP/dist/src/shared/db/orm.js" <<JS
 import { MikroORM } from '@mikro-orm/libsql';
 export const orm = await MikroORM.init({ entities: ['$TMP/dist/src/**/*.entity.js'], dbName: ':memory:' });
-export const syncSchema = async () => { await orm.getSchemaGenerator().createSchema(); };
+export const migrar = async () => { await orm.getSchemaGenerator().createSchema(); };
 JS
+
+# Las migraciones están escritas para MySQL, así que acá solo se verifica que el sistema las descubra.
+cat > "$TMP/migraciones.mjs" <<JS
+import { MikroORM } from '@mikro-orm/libsql';
+import { Migrator } from '@mikro-orm/migrations';
+const orm = await MikroORM.init({
+  entities: ['$TMP/dist/src/**/*.entity.js'], dbName: ':memory:', extensions: [Migrator],
+  migrations: { path: '$TMP/dist/src/migrations', glob: '!(*.d).{js,ts}', snapshot: false },
+});
+const pendientes = await orm.migrator.getPendingMigrations();
+const ok = pendientes.length >= 1 && pendientes[0].name.includes('inicial');
+console.log((ok ? 'PASS' : 'FAIL') + ' - el migrador descubre la migración inicial (' + pendientes.map((m) => m.name).join(', ') + ')');
+await orm.close();
+JS
+(cd "$TMP" && node migraciones.mjs) | tee "$TMP/mig.txt"
+! grep -q '^FAIL' "$TMP/mig.txt"
 
 cd "$TMP"
 JWT_SECRET=test PORT=3999 node dist/src/app.js >"$TMP/server.log" 2>&1 &
