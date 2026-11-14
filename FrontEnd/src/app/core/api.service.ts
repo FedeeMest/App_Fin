@@ -39,4 +39,8 @@ export class ApiService {
   presupuestos(mes: string) { return this.http.get<Presupuestos>(`${this.base}/presupuestos`, { params: { mes } }); }
   guardarPresupuesto(d: { categoriaId: number | null; monto_limite: number }) { return this.http.post(`${this.base}/presupuestos`, d); }
   borrarPresupuesto(id: number) { return this.http.delete(`${this.base}/presupuestos/${id}`); }
+
+  confirmarPago(d: { origen: 'RECURRENTE' | 'CUOTA'; id: number; fecha?: string; nro_cuota?: number | null; cuentaId?: number | null; monto?: number; fecha_real?: string }) {
+    return this.http.post(`${this.base}/calendario/confirmar`, d);
+  }
 }

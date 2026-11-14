@@ -29,10 +29,12 @@ export interface Recurrente {
   cuenta: { id: number; nombre: string } | null; categoria: { id: number; nombre: string } | null;
 }
 export interface EventoCalendario {
-  fecha: string; tipo: TipoCategoria; origen: 'RECURRENTE' | 'CUOTA'; descripcion: string; monto: number; detalle?: string;
+  fecha: string; tipo: TipoCategoria; origen: 'RECURRENTE' | 'CUOTA'; origenId: number; nroCuota: number | null;
+  cuentaId: number | null; descripcion: string; monto: number; detalle?: string; confirmado: boolean;
 }
 export interface Calendario {
   mes: string; eventos: EventoCalendario[]; total_ingresos: number; total_gastos: number; balance_previsto: number;
+  pendiente_ingresos: number; pendiente_gastos: number;
 }
 
 export type Semaforo = 'OK' | 'ATENCION' | 'EXCEDIDO';

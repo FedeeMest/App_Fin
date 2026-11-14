@@ -39,3 +39,10 @@ cd FrontEnd
 pnpm install
 pnpm start   # http://localhost:4200 (API en http://localhost:3000/api)
 ```
+
+## Pruebas (backend)
+
+```bash
+cd BackEnd
+pnpm test   # integración sobre SQLite en memoria, no necesita MySQL
+```

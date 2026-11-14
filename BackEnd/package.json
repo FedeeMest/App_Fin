@@ -6,6 +6,7 @@
   "scripts": {
     "start:dev": "tsc-watch --noClear -p tsconfig.json --onSuccess \"node dist/src/app.js\"",
     "build": "tsc",
+    "test": "bash test/run-integration.sh",
     "start": "node dist/src/app.js"
   },
   "dependencies": {

@@ -104,5 +104,20 @@ Pendiente: generar el movimiento real al llegar la fecha y avisos de próximos p
 Por cada uno calcula gastado (movimientos reales), previsto pendiente (fijos y cuotas que aún no vencieron, hoy incluido),
 restante, porcentaje y semáforo (OK < 80 %, ATENCIÓN ≥ 80 %, EXCEDIDO ≥ 100 %).
 Con presupuesto total y mes en curso devuelve el presupuesto diario: restante / días que quedan (hoy incluido).
-Limitación conocida: si un pago previsto se registra además como movimiento el mismo día, se cuenta dos veces hasta
-que exista "confirmar pago" (siguiente paso). "Hoy" se calcula en `APP_TZ` (por defecto Argentina), no en UTC.
+Previsto = pagos sin confirmar del mes (aunque su fecha ya pasó); en meses pasados no se proyecta nada.
+"Hoy" se calcula en `APP_TZ` (por defecto Argentina), no en UTC.
+
+## 10. Confirmar pagos
+
+`POST /api/calendario/confirmar` convierte un pago o cobro previsto (fijo o cuota) en un movimiento real:
+`{origen:'RECURRENTE', id, fecha}` o `{origen:'CUOTA', id, nro_cuota}`, con `cuentaId`, `monto` y `fecha_real` opcionales
+(si no se indica cuenta se usa la del origen). El movimiento guarda su origen (`recurrente`/`compra_cuotas`,
+`fecha_prevista`, `nro_cuota`) con índices únicos, así que no se puede confirmar dos veces. El calendario marca los
+confirmados y los presupuestos descuentan el previsto: no hay doble conteo. Borrar el movimiento lo devuelve a pendiente;
+borrar el origen conserva el movimiento (`deleteRule: set null`). Los pagos vencidos sin confirmar se señalan.
+
+## 11. Pruebas
+
+`cd BackEnd && pnpm test` ejecuta `test/run-integration.sh`: levanta la API real sobre SQLite en memoria (sin MySQL) y
+corre ~55 chequeos de punta a punta (auth, aislamiento entre usuarios, saldos, cuotas, calendario, confirmación y
+presupuestos). Limitación: SQLite no reemplaza una prueba contra MySQL (tipos y índices pueden diferir levemente).

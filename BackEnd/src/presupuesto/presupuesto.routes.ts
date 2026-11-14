@@ -27,8 +27,8 @@ presupuestoRouter.get('/', async (req: AuthRequest, res: Response) => {
     em.find(Transaccion, { usuario: usuarioId, tipo: 'GASTO', fecha: { $gte: desde, $lte: hasta } }),
     eventosPrevistos(em, usuarioId, desde, hasta),
   ]);
-  // Solo cuenta lo que todavía no ocurrió (hoy incluido, por prudencia); en meses pasados no queda nada pendiente.
-  const pendientes = eventos.filter((e) => e.tipo === 'GASTO' && e.fecha >= hoyStr);
+  // Previsto = pagos aún sin confirmar del mes (aunque su fecha ya pasó: falta registrarlos). En meses pasados no se proyecta nada.
+  const pendientes = mes < hoyStr.slice(0, 7) ? [] : eventos.filter((e) => e.tipo === 'GASTO' && !e.confirmado);
 
   const items = presupuestos.map((p) => {
     const catId = p.categoria?.id ?? null;

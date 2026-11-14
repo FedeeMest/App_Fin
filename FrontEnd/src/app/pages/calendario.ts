@@ -2,7 +2,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
-import { Calendario, Categoria, Cuenta, Recurrente } from '../core/models';
+import { Calendario, Categoria, Cuenta, EventoCalendario, Recurrente } from '../core/models';
 
 const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -28,6 +28,9 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
         <div class="card"><div class="text-xs text-slate-500">Balance</div>
           <div class="font-semibold">{{ c.balance_previsto | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div></div>
       </div>
+      @if (c.pendiente_gastos > 0 || c.pendiente_ingresos > 0) {
+        <p class="mb-4 text-xs text-slate-500">Sin confirmar: pagos {{ c.pendiente_gastos | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }} · ingresos {{ c.pendiente_ingresos | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</p>
+      }
     }
 
     <div class="card mb-4 !p-2 sm:!p-4">
@@ -57,12 +60,19 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
       @for (e of eventosDelDia(); track $index) {
         <div class="flex items-center justify-between gap-2 border-t border-slate-100 py-2 first:border-0">
           <div class="min-w-0">
-            <div class="truncate">{{ e.descripcion }}</div>
-            <div class="text-xs text-slate-500">{{ e.origen === 'CUOTA' ? e.detalle : 'Recurrente' }}</div>
+            <div class="truncate" [class.line-through]="e.confirmado" [class.text-slate-400]="e.confirmado">{{ e.descripcion }}</div>
+            <div class="text-xs text-slate-500">
+              {{ e.origen === 'CUOTA' ? e.detalle : 'Recurrente' }}
+              @if (e.confirmado) { · <span class="text-emerald-600">✓ Confirmado</span> }
+              @else if (e.fecha < hoy) { · <span class="text-amber-600">Vencido sin confirmar</span> }
+            </div>
           </div>
-          <span class="font-semibold" [class.text-emerald-600]="e.tipo === 'INGRESO'" [class.text-rose-600]="e.tipo === 'GASTO'">
-            {{ e.tipo === 'INGRESO' ? '+' : '-' }}{{ e.monto | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}
-          </span>
+          <div class="flex shrink-0 items-center gap-2">
+            <span class="font-semibold" [class.text-emerald-600]="e.tipo === 'INGRESO'" [class.text-rose-600]="e.tipo === 'GASTO'">
+              {{ e.tipo === 'INGRESO' ? '+' : '-' }}{{ e.monto | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}
+            </span>
+            @if (!e.confirmado) { <button class="btn !px-3 !py-1.5 text-sm" (click)="abrirConfirmar(e)">Confirmar</button> }
+          </div>
         </div>
       } @empty { <p class="py-3 text-center text-sm text-slate-400">Sin eventos este día</p> }
     </div>
@@ -91,6 +101,27 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
         </div>
       } @empty { <p class="card py-6 text-center text-slate-400">Cargá tu sueldo, alquiler o suscripciones para verlos acá</p> }
     </div>
+
+    @if (confirmando(); as ev) {
+      <div class="fixed inset-0 z-30 flex items-end bg-black/40 sm:items-center sm:justify-center" (click)="confirmando.set(null)">
+        <form class="w-full space-y-3 rounded-t-3xl bg-white p-5 sm:max-w-md sm:rounded-3xl" (click)="$event.stopPropagation()" (ngSubmit)="confirmar(ev)">
+          <h2 class="text-lg font-bold">Confirmar {{ ev.tipo === 'INGRESO' ? 'cobro' : 'pago' }}</h2>
+          <p class="text-sm text-slate-500">{{ ev.descripcion }}{{ ev.detalle ? ' · ' + ev.detalle : '' }} — se registra como movimiento real.</p>
+          <div><label class="label">Monto real (ARS)</label>
+            <input class="input" type="number" inputmode="decimal" step="0.01" min="0.01" name="cm" [(ngModel)]="c.monto" required /></div>
+          <div><label class="label">Fecha en que ocurrió</label><input class="input" type="date" name="cf" [(ngModel)]="c.fecha" required /></div>
+          <div><label class="label">Cuenta</label>
+            <select class="input" name="cc" [(ngModel)]="c.cuentaId" required>
+              @for (cu of cuentas(); track cu.id) { <option [ngValue]="cu.id">{{ cu.nombre }}</option> }
+            </select></div>
+          @if (errorConfirmar()) { <p class="rounded-lg bg-red-50 p-2 text-sm text-red-700">{{ errorConfirmar() }}</p> }
+          <div class="flex gap-2 pt-1">
+            <button type="button" class="btn-ghost flex-1" (click)="confirmando.set(null)">Cancelar</button>
+            <button class="btn flex-1">Confirmar</button>
+          </div>
+        </form>
+      </div>
+    }
 
     @if (modal()) {
       <div class="fixed inset-0 z-30 flex items-end bg-black/40 sm:items-center sm:justify-center" (click)="modal.set(false)">
@@ -147,6 +178,9 @@ export class CalendarioPage {
   modal = signal(false);
   error = signal('');
   f = this.vacio();
+  confirmando = signal<EventoCalendario | null>(null);
+  errorConfirmar = signal('');
+  c = { monto: null as number | null, fecha: this.hoy, cuentaId: null as number | null };
 
   tituloMes = computed(() => {
     const [y, m] = this.mes().split('-').map(Number);
@@ -204,6 +238,23 @@ export class CalendarioPage {
     this.api.crearRecurrente({ ...this.f, fecha_fin: this.f.fecha_fin || null }).subscribe({
       next: () => { this.modal.set(false); this.recargar(); },
       error: (e) => this.error.set(e.error?.message ?? 'No se pudo guardar'),
+    });
+  }
+
+  abrirConfirmar(e: EventoCalendario) {
+    // Si todavía no llegó la fecha, se propone hoy igualmente: lo normal es confirmar cuando el pago ya ocurrió.
+    this.c = { monto: e.monto, fecha: this.hoy, cuentaId: e.cuentaId ?? this.cuentas()[0]?.id ?? null };
+    this.errorConfirmar.set('');
+    this.confirmando.set(e);
+  }
+
+  confirmar(e: EventoCalendario) {
+    this.api.confirmarPago({
+      origen: e.origen, id: e.origenId, fecha: e.fecha, nro_cuota: e.nroCuota,
+      cuentaId: this.c.cuentaId, monto: Number(this.c.monto), fecha_real: this.c.fecha,
+    }).subscribe({
+      next: () => { this.confirmando.set(null); this.recargar(); },
+      error: (er) => this.errorConfirmar.set(er.error?.message ?? 'No se pudo confirmar'),
     });
   }
 
