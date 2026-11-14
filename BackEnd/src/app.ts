@@ -12,6 +12,7 @@ import { transaccionRouter } from './transaccion/transaccion.routes.js';
 import { cuotaRouter } from './cuota/cuota.routes.js';
 import { recurrenteRouter } from './recurrente/recurrente.routes.js';
 import { calendarioRouter } from './calendario/calendario.routes.js';
+import { presupuestoRouter } from './presupuesto/presupuesto.routes.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -38,6 +39,7 @@ app.use('/api/transacciones', transaccionRouter);
 app.use('/api/cuotas', cuotaRouter);
 app.use('/api/recurrentes', recurrenteRouter);
 app.use('/api/calendario', calendarioRouter);
+app.use('/api/presupuestos', presupuestoRouter);
 
 app.get('/', (_req, res) => res.send('App_Fin API funcionando'));
 app.use((_req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));

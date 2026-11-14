@@ -34,3 +34,13 @@ export interface EventoCalendario {
 export interface Calendario {
   mes: string; eventos: EventoCalendario[]; total_ingresos: number; total_gastos: number; balance_previsto: number;
 }
+
+export type Semaforo = 'OK' | 'ATENCION' | 'EXCEDIDO';
+export interface ItemPresupuesto {
+  id: number; categoria: { id: number; nombre: string } | null; monto_limite: number;
+  gastado: number; previsto: number; restante: number; porcentaje: number; estado: Semaforo;
+}
+export interface Presupuestos {
+  mes: string; items: ItemPresupuesto[];
+  diario: { dias_restantes: number; por_dia: number; restante_mes: number } | null;
+}

@@ -54,6 +54,7 @@ export class MainLayout {
     { path: '/movimientos', label: 'Movim.', icon: '🧾', movil: true },
     { path: '/calendario', label: 'Calendario', icon: '📅', movil: true },
     { path: '/cuotas', label: 'Cuotas', icon: '💳', movil: true },
+    { path: '/presupuestos', label: 'Presupuestos', icon: '🎯', movil: false },
     { path: '/cuentas', label: 'Cuentas', icon: '🏦', movil: false },
     { path: '/categorias', label: 'Categorías', icon: '🏷️', movil: false },
   ];

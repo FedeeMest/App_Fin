@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../core/api.service';
-import { Cuenta, Resumen, ResumenCuotas } from '../core/models';
+import { Cuenta, Presupuestos, Resumen, ResumenCuotas } from '../core/models';
 
 Chart.register(...registerables);
 
@@ -31,6 +31,14 @@ Chart.register(...registerables);
         <div class="font-semibold">{{ resumen()?.balance ?? 0 | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div></div>
     </div>
 
+    @if (presu()?.diario; as d) {
+      <a routerLink="/presupuestos" class="card mb-4 flex items-center justify-between">
+        <div><div class="text-xs text-slate-500">Podés gastar hoy</div>
+          <div class="text-xl font-bold text-brand-700">{{ d.por_dia | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div></div>
+        <div class="text-right text-xs text-slate-500">Quedan {{ d.restante_mes | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}<br />{{ d.dias_restantes }} día(s) del mes</div>
+      </a>
+    }
+
     @if (cuotas(); as q) {
       @if (q.compras_activas > 0) {
         <a routerLink="/cuotas" class="card mb-4 flex items-center justify-between">
@@ -51,10 +59,11 @@ Chart.register(...registerables);
 })
 export class DashboardPage implements OnDestroy {
   private api = inject(ApiService);
-  mes = signal(new Date().toISOString().slice(0, 7));
+  mes = signal(new Date().toLocaleDateString('en-CA').slice(0, 7));
   resumen = signal<Resumen | null>(null);
   cuentas = signal<Cuenta[]>([]);
   cuotas = signal<ResumenCuotas | null>(null);
+  presu = signal<Presupuestos | null>(null);
   private chart?: Chart;
   private canvas?: ElementRef<HTMLCanvasElement>;
 
@@ -66,6 +75,7 @@ export class DashboardPage implements OnDestroy {
   constructor() {
     this.api.cuentas().subscribe((c) => this.cuentas.set(c));
     this.api.resumenCuotas(1).subscribe((q) => this.cuotas.set(q));
+    this.api.presupuestos(new Date().toLocaleDateString('en-CA').slice(0, 7)).subscribe((p) => this.presu.set(p));
     effect(() => {
       const mes = this.mes();
       if (!mes) return;

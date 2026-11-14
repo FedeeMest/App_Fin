@@ -51,7 +51,7 @@ Montos: `decimal(14,2)`; nunca `number` flotante.
 | Transaccion | fecha, monto, tipo, cuenta, categoria, nota, cuenta_destino | Hecho |
 | CompraCuotas | descripción, monto_total, cantidad_cuotas, fecha_primera_cuota, cuenta, categoría | Hecho |
 | Recurrente | descripción, tipo, monto, frecuencia, fecha_inicio, fecha_fin, activo, cuenta, categoría | Hecho |
-| Presupuesto | periodo, categoria, monto_limite | Pendiente |
+| Presupuesto | categoría (vacía = total del mes), monto_limite | Hecho |
 | Meta / AporteMeta | objetivo, fecha_limite, aportes | Pendiente |
 | TipoCambio | fecha, moneda_origen, moneda_destino, tasa | Pendiente |
 | Conciliacion | cuenta, saldo_real, saldo_sistema, diferencia | Pendiente |
@@ -97,3 +97,12 @@ las fechas se calculan desde `fecha_inicio` (un recurrente del día 31 cae el ú
 Frontend: pantalla Calendario (grilla mensual con puntos por día, detalle del día y gestión de fijos) y pantalla "Más"
 en móvil para Cuentas, Categorías y cerrar sesión.
 Pendiente: generar el movimiento real al llegar la fecha y avisos de próximos pagos.
+
+## 9. Presupuestos
+
+`/api/presupuestos?mes=YYYY-MM`: límite mensual por categoría de gasto o total del mes (rige todos los meses).
+Por cada uno calcula gastado (movimientos reales), previsto pendiente (fijos y cuotas que aún no vencieron, hoy incluido),
+restante, porcentaje y semáforo (OK < 80 %, ATENCIÓN ≥ 80 %, EXCEDIDO ≥ 100 %).
+Con presupuesto total y mes en curso devuelve el presupuesto diario: restante / días que quedan (hoy incluido).
+Limitación conocida: si un pago previsto se registra además como movimiento el mismo día, se cuenta dos veces hasta
+que exista "confirmar pago" (siguiente paso). "Hoy" se calcula en `APP_TZ` (por defecto Argentina), no en UTC.

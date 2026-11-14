@@ -15,6 +15,7 @@ export const routes: Routes = [
       { path: 'movimientos', loadComponent: () => import('./pages/movimientos').then((m) => m.MovimientosPage) },
       { path: 'calendario', loadComponent: () => import('./pages/calendario').then((m) => m.CalendarioPage) },
       { path: 'mas', loadComponent: () => import('./pages/mas').then((m) => m.MasPage) },
+      { path: 'presupuestos', loadComponent: () => import('./pages/presupuestos').then((m) => m.PresupuestosPage) },
       { path: 'cuotas', loadComponent: () => import('./pages/cuotas').then((m) => m.CuotasPage) },
       { path: 'cuentas', loadComponent: () => import('./pages/cuentas').then((m) => m.CuentasPage) },
       { path: 'categorias', loadComponent: () => import('./pages/categorias').then((m) => m.CategoriasPage) },

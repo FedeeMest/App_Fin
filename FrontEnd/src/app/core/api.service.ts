@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { Calendario, Categoria, CompraCuotas, Cuenta, Pagina, Recurrente, Resumen, ResumenCuotas, Transaccion } from './models';
+import { Calendario, Categoria, CompraCuotas, Cuenta, Pagina, Presupuestos, Recurrente, Resumen, ResumenCuotas, Transaccion } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -35,4 +35,8 @@ export class ApiService {
   pausarRecurrente(id: number, activo: boolean) { return this.http.patch(`${this.base}/recurrentes/${id}/activo`, { activo }); }
   borrarRecurrente(id: number) { return this.http.delete(`${this.base}/recurrentes/${id}`); }
   calendario(mes: string) { return this.http.get<Calendario>(`${this.base}/calendario`, { params: { mes } }); }
+
+  presupuestos(mes: string) { return this.http.get<Presupuestos>(`${this.base}/presupuestos`, { params: { mes } }); }
+  guardarPresupuesto(d: { categoriaId: number | null; monto_limite: number }) { return this.http.post(`${this.base}/presupuestos`, d); }
+  borrarPresupuesto(id: number) { return this.http.delete(`${this.base}/presupuestos/${id}`); }
 }

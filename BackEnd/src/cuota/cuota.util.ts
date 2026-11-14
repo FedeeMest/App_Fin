@@ -21,9 +21,9 @@ export function montoCuota(c: Pick<CompraCuotas, 'monto_total' | 'cantidad_cuota
 
 export const vencimiento = (c: Pick<CompraCuotas, 'fecha_primera_cuota'>, k: number) => sumarMeses(c.fecha_primera_cuota, k - 1);
 
+/** Fecha de hoy (YYYY-MM-DD) en la zona horaria de la app, no la del servidor (suele estar en UTC). */
 export function hoy(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return new Date().toLocaleDateString('en-CA', { timeZone: process.env.APP_TZ || 'America/Argentina/Buenos_Aires' });
 }
 
 /** Estado calculado de una compra a la fecha `ref`. Una cuota se considera paga si ya venció. */
