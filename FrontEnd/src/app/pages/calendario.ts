@@ -1,20 +1,26 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { DatosService } from '../core/datos.service';
+import { ToastService } from '../core/toast.service';
+
+import { MoneyPipe } from '../core/money.pipe';
+import { SheetComponent } from '../ui/sheet';
+
 import { Calendario, Categoria, Cuenta, EventoCalendario, Recurrente } from '../core/models';
 
 const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 @Component({
   selector: 'app-calendario',
-  imports: [CurrencyPipe, DatePipe, FormsModule],
+  imports: [MoneyPipe, DatePipe, FormsModule, SheetComponent],
   template: `
-    <div class="mb-4 flex items-center justify-between gap-2">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Calendario</h1>
       <div class="flex items-center gap-1">
         <button class="btn-ghost" (click)="mover(-1)" aria-label="Mes anterior">‹</button>
-        <span class="w-32 text-center font-medium capitalize">{{ tituloMes() }}</span>
+        <span class="w-40 whitespace-nowrap text-center font-medium first-letter:uppercase">{{ tituloMes() }}</span>
         <button class="btn-ghost" (click)="mover(1)" aria-label="Mes siguiente">›</button>
       </div>
     </div>
@@ -22,14 +28,14 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
     @if (cal(); as c) {
       <div class="mb-4 grid grid-cols-3 gap-2 sm:gap-4">
         <div class="card"><div class="text-xs text-slate-500">Ingresos previstos</div>
-          <div class="font-semibold text-emerald-600">{{ c.total_ingresos | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div></div>
+          <div class="font-semibold text-emerald-600">{{ c.total_ingresos | money }}</div></div>
         <div class="card"><div class="text-xs text-slate-500">Pagos previstos</div>
-          <div class="font-semibold text-rose-600">{{ c.total_gastos | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div></div>
+          <div class="font-semibold text-rose-600">{{ c.total_gastos | money }}</div></div>
         <div class="card"><div class="text-xs text-slate-500">Balance</div>
-          <div class="font-semibold">{{ c.balance_previsto | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div></div>
+          <div class="font-semibold">{{ c.balance_previsto | money }}</div></div>
       </div>
       @if (c.pendiente_gastos > 0 || c.pendiente_ingresos > 0) {
-        <p class="mb-4 text-xs text-slate-500">Sin confirmar: pagos {{ c.pendiente_gastos | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }} · ingresos {{ c.pendiente_ingresos | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</p>
+        <p class="mb-4 text-xs text-slate-500">Sin confirmar: pagos {{ c.pendiente_gastos | money }} · ingresos {{ c.pendiente_ingresos | money }}</p>
       }
     }
 
@@ -69,7 +75,7 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
           </div>
           <div class="flex shrink-0 items-center gap-2">
             <span class="font-semibold" [class.text-emerald-600]="e.tipo === 'INGRESO'" [class.text-rose-600]="e.tipo === 'GASTO'">
-              {{ e.tipo === 'INGRESO' ? '+' : '-' }}{{ e.monto | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}
+              {{ e.tipo === 'INGRESO' ? '+' : '-' }}{{ e.monto | money }}
             </span>
             @if (!e.confirmado) { <button class="btn !px-3 !py-1.5 text-sm" (click)="abrirConfirmar(e)">Confirmar</button> }
           </div>
@@ -94,7 +100,7 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
           </div>
           <div class="flex shrink-0 items-center gap-1">
             <span class="font-semibold" [class.text-emerald-600]="r.tipo === 'INGRESO'" [class.text-rose-600]="r.tipo === 'GASTO'">
-              {{ r.monto | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</span>
+              {{ r.monto | money }}</span>
             <button class="btn-ghost !px-2" (click)="pausar(r)" [attr.aria-label]="r.activo ? 'Pausar' : 'Reanudar'">{{ r.activo ? '⏸' : '▶' }}</button>
             <button class="text-slate-300 hover:text-rose-600" (click)="borrar(r)" aria-label="Eliminar">✕</button>
           </div>
@@ -103,8 +109,8 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
     </div>
 
     @if (confirmando(); as ev) {
-      <div class="fixed inset-0 z-30 flex items-end bg-black/40 sm:items-center sm:justify-center" (click)="confirmando.set(null)">
-        <form class="w-full space-y-3 rounded-t-3xl bg-white p-5 sm:max-w-md sm:rounded-3xl" (click)="$event.stopPropagation()" (ngSubmit)="confirmar(ev)">
+      <app-sheet [abierto]="true" (cerrar)="confirmando.set(null)">
+        <form class="space-y-3" (ngSubmit)="confirmar(ev)">
           <h2 class="text-lg font-bold">Confirmar {{ ev.tipo === 'INGRESO' ? 'cobro' : 'pago' }}</h2>
           <p class="text-sm text-slate-500">{{ ev.descripcion }}{{ ev.detalle ? ' · ' + ev.detalle : '' }} — se registra como movimiento real.</p>
           <div><label class="label">Monto real (ARS)</label>
@@ -120,13 +126,12 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
             <button class="btn flex-1">Confirmar</button>
           </div>
         </form>
-      </div>
+      </app-sheet>
     }
 
     @if (modal()) {
-      <div class="fixed inset-0 z-30 flex items-end bg-black/40 sm:items-center sm:justify-center" (click)="modal.set(false)">
-        <form class="max-h-[92vh] w-full space-y-3 overflow-y-auto rounded-t-3xl bg-white p-5 sm:max-w-md sm:rounded-3xl"
-              (click)="$event.stopPropagation()" (ngSubmit)="guardar()">
+      <app-sheet [abierto]="true" (cerrar)="modal.set(false)">
+        <form class="space-y-3" (ngSubmit)="guardar()">
           <h2 class="text-lg font-bold">Nuevo ingreso/gasto fijo</h2>
           <div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 text-center text-sm">
             <button type="button" class="rounded-lg py-2" [class.bg-white]="f.tipo === 'GASTO'" [class.font-semibold]="f.tipo === 'GASTO'" (click)="f.tipo = 'GASTO'">Gasto</button>
@@ -161,12 +166,14 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
             <button class="btn flex-1">Guardar</button>
           </div>
         </form>
-      </div>
+      </app-sheet>
     }
   `,
 })
 export class CalendarioPage {
   private api = inject(ApiService);
+  private datos = inject(DatosService);
+  private toast = inject(ToastService);
   dias = DIAS;
   hoy = new Date().toLocaleDateString('en-CA');
   mes = signal(this.hoy.slice(0, 7));
@@ -236,7 +243,7 @@ export class CalendarioPage {
 
   guardar() {
     this.api.crearRecurrente({ ...this.f, fecha_fin: this.f.fecha_fin || null }).subscribe({
-      next: () => { this.modal.set(false); this.recargar(); },
+      next: () => { this.modal.set(false); this.recargar(); this.toast.mostrar('Guardado'); },
       error: (e) => this.error.set(e.error?.message ?? 'No se pudo guardar'),
     });
   }
@@ -253,7 +260,10 @@ export class CalendarioPage {
       origen: e.origen, id: e.origenId, fecha: e.fecha, nro_cuota: e.nroCuota,
       cuentaId: this.c.cuentaId, monto: Number(this.c.monto), fecha_real: this.c.fecha,
     }).subscribe({
-      next: () => { this.confirmando.set(null); this.recargar(); },
+      next: (r) => {
+        this.confirmando.set(null); this.recargar(); this.datos.notificar();
+        this.toast.mostrar('Registrado como movimiento', { accion: { etiqueta: 'Deshacer', ejecutar: () => this.api.borrarTransaccion(r.id).subscribe(() => { this.recargar(); this.datos.notificar(); }) } });
+      },
       error: (er) => this.errorConfirmar.set(er.error?.message ?? 'No se pudo confirmar'),
     });
   }

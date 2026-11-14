@@ -1,12 +1,19 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../core/api.service';
+import { DatosService } from '../core/datos.service';
+import { ToastService } from '../core/toast.service';
+
+import { MoneyPipe } from '../core/money.pipe';
+import { SheetComponent } from '../ui/sheet';
+
 import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
 
 @Component({
   selector: 'app-cuotas',
-  imports: [CurrencyPipe, DatePipe, FormsModule],
+  imports: [MoneyPipe, DatePipe, FormsModule, SheetComponent],
   template: `
     <div class="mb-4 flex items-center justify-between">
       <h1 class="text-xl font-bold">Compras en cuotas</h1>
@@ -17,11 +24,11 @@ import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
       <div class="mb-4 grid grid-cols-2 gap-2 sm:gap-4">
         <div class="card bg-brand-600 !text-white">
           <div class="text-xs opacity-80">A pagar este mes</div>
-          <div class="text-2xl font-bold">{{ r.total_mes_actual | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div>
+          <div class="text-2xl font-bold">{{ r.total_mes_actual | money }}</div>
         </div>
         <div class="card">
           <div class="text-xs text-slate-500">Deuda total en cuotas</div>
-          <div class="text-2xl font-bold">{{ r.deuda_total | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div>
+          <div class="text-2xl font-bold">{{ r.deuda_total | money }}</div>
           <div class="text-xs text-slate-400">{{ r.compras_activas }} compra(s) activa(s)</div>
         </div>
       </div>
@@ -35,7 +42,7 @@ import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
               <div class="h-4 flex-1 overflow-hidden rounded bg-slate-100">
                 <div class="h-full rounded bg-brand-500" [style.width.%]="maximo() ? (p.total / maximo()) * 100 : 0"></div>
               </div>
-              <span class="w-24 shrink-0 text-right font-medium">{{ p.total | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</span>
+              <span class="w-24 shrink-0 text-right font-medium">{{ p.total | money }}</span>
             </div>
           }
         </div>
@@ -53,7 +60,7 @@ import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="truncate font-medium">{{ c.descripcion }}</div>
-              <div class="truncate text-xs text-slate-500">{{ c.cuenta?.nombre ?? 'Sin cuenta' }} · total {{ c.monto_total | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div>
+              <div class="truncate text-xs text-slate-500">{{ c.cuenta?.nombre ?? 'Sin cuenta' }} · total {{ c.monto_total | money }}</div>
             </div>
             <button class="text-slate-300 hover:text-rose-600" (click)="borrar(c)" aria-label="Eliminar">✕</button>
           </div>
@@ -63,11 +70,11 @@ import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
           <div class="mt-2 flex flex-wrap items-center justify-between gap-x-3 text-sm">
             <span>{{ c.cuotas_pagadas }} de {{ c.cantidad_cuotas }} pagas
               @if (!c.finalizada) { · <b>faltan {{ c.cuotas_restantes }}</b> }</span>
-            <span class="text-slate-500">{{ c.monto_cuota | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}/mes</span>
+            <span class="text-slate-500">{{ c.monto_cuota | money }}/mes</span>
           </div>
           @if (!c.finalizada) {
             <div class="mt-1 text-xs text-slate-500">
-              Próxima: {{ c.proximo_vencimiento | date: 'dd/MM/yyyy' }} · Resta pagar {{ c.monto_restante | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}
+              Próxima: {{ c.proximo_vencimiento | date: 'dd/MM/yyyy' }} · Resta pagar {{ c.monto_restante | money }}
             </div>
           }
         </div>
@@ -75,9 +82,8 @@ import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
     </div>
 
     @if (modal()) {
-      <div class="fixed inset-0 z-30 flex items-end bg-black/40 sm:items-center sm:justify-center" (click)="modal.set(false)">
-        <form class="max-h-[92vh] w-full space-y-3 overflow-y-auto rounded-t-3xl bg-white p-5 sm:max-w-md sm:rounded-3xl"
-              (click)="$event.stopPropagation()" (ngSubmit)="guardar()">
+      <app-sheet [abierto]="true" (cerrar)="modal.set(false)">
+        <form class="space-y-3" (ngSubmit)="guardar()">
           <h2 class="text-lg font-bold">Nueva compra en cuotas</h2>
           <div><label class="label">Descripción</label><input class="input" name="d" [(ngModel)]="f.descripcion" required maxlength="120" placeholder="Ej: Heladera" /></div>
           <div class="grid grid-cols-2 gap-3">
@@ -87,7 +93,7 @@ import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
               <input class="input" type="number" inputmode="numeric" min="1" max="60" name="n" [(ngModel)]="f.cantidad_cuotas" required /></div>
           </div>
           @if (f.monto_total && f.cantidad_cuotas) {
-            <p class="text-sm text-slate-500">≈ {{ f.monto_total / f.cantidad_cuotas | currency: 'ARS' : 'symbol-narrow' : '1.0-2' }} por cuota</p>
+            <p class="text-sm text-slate-500">≈ {{ f.monto_total / f.cantidad_cuotas | money }} por cuota</p>
           }
           <div><label class="label">Vencimiento de la 1.ª cuota</label><input class="input" type="date" name="fp" [(ngModel)]="f.fecha_primera_cuota" required /></div>
           <div><label class="label">Tarjeta / cuenta</label>
@@ -106,12 +112,14 @@ import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
             <button class="btn flex-1">Guardar</button>
           </div>
         </form>
-      </div>
+      </app-sheet>
     }
   `,
 })
 export class CuotasPage {
   private api = inject(ApiService);
+  private datos = inject(DatosService);
+  private toast = inject(ToastService);
   compras = signal<CompraCuotas[]>([]);
   resumen = signal<ResumenCuotas | null>(null);
   cuentas = signal<Cuenta[]>([]);
@@ -128,6 +136,7 @@ export class CuotasPage {
     this.api.cuentas().subscribe((c) => this.cuentas.set(c));
     this.api.categorias().subscribe((c) => this.categorias.set(c.filter((x) => x.tipo === 'GASTO')));
     this.cargar();
+    if (inject(ActivatedRoute).snapshot.queryParamMap.get('nueva')) this.abrir();
   }
 
   private vacio() {
@@ -149,13 +158,13 @@ export class CuotasPage {
 
   guardar() {
     this.api.crearCompraCuotas(this.f).subscribe({
-      next: () => { this.modal.set(false); this.cargar(); },
+      next: () => { this.modal.set(false); this.cargar(); this.toast.mostrar('Compra en cuotas guardada'); },
       error: (e) => this.error.set(e.error?.message ?? 'No se pudo guardar'),
     });
   }
 
   borrar(c: CompraCuotas) {
     if (!confirm(`¿Eliminar "${c.descripcion}"?`)) return;
-    this.api.borrarCompraCuotas(c.id).subscribe(() => this.cargar());
+    this.api.borrarCompraCuotas(c.id).subscribe(() => { this.cargar(); this.toast.mostrar('Compra eliminada'); });
   }
 }

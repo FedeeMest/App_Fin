@@ -1,19 +1,24 @@
 import { Component, inject, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { DatosService } from '../core/datos.service';
+import { ToastService } from '../core/toast.service';
+
+import { MoneyPipe } from '../core/money.pipe';
+
 import { Cuenta } from '../core/models';
 
 @Component({
   selector: 'app-cuentas',
-  imports: [CurrencyPipe, FormsModule],
+  imports: [MoneyPipe, FormsModule],
   template: `
     <h1 class="mb-4 text-xl font-bold">Cuentas</h1>
     <div class="mb-6 grid gap-2 sm:grid-cols-2">
       @for (c of cuentas(); track c.id) {
         <div class="card flex items-center justify-between">
           <div><div class="font-medium">{{ c.nombre }}</div><div class="text-xs text-slate-500">{{ c.tipo }}</div></div>
-          <div class="font-semibold" [class.text-rose-600]="c.saldo < 0">{{ c.saldo | currency: 'ARS' : 'symbol-narrow' : '1.0-2' }}</div>
+          <div class="font-semibold" [class.text-rose-600]="c.saldo < 0">{{ c.saldo | money }}</div>
         </div>
       }
     </div>
@@ -36,6 +41,8 @@ import { Cuenta } from '../core/models';
 })
 export class CuentasPage {
   private api = inject(ApiService);
+  private datos = inject(DatosService);
+  private toast = inject(ToastService);
   cuentas = signal<Cuenta[]>([]);
   error = signal('');
   nombre = ''; tipo = 'BANCO'; saldo = 0;
@@ -45,7 +52,7 @@ export class CuentasPage {
 
   crear() {
     this.api.crearCuenta({ nombre: this.nombre, tipo: this.tipo, saldo_inicial: this.saldo ?? 0 }).subscribe({
-      next: () => { this.nombre = ''; this.saldo = 0; this.error.set(''); this.cargar(); },
+      next: () => { this.nombre = ''; this.saldo = 0; this.error.set(''); this.cargar(); this.datos.notificar(); this.toast.mostrar('Cuenta creada'); },
       error: (e) => this.error.set(e.error?.message ?? 'No se pudo crear'),
     });
   }

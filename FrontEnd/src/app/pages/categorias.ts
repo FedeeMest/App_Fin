@@ -1,6 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { DatosService } from '../core/datos.service';
+import { ToastService } from '../core/toast.service';
+
 import { Categoria } from '../core/models';
 
 @Component({
@@ -35,6 +38,8 @@ import { Categoria } from '../core/models';
 })
 export class CategoriasPage {
   private api = inject(ApiService);
+  private datos = inject(DatosService);
+  private toast = inject(ToastService);
   categorias = signal<Categoria[]>([]);
   error = signal('');
   nombre = ''; tipo = 'GASTO';
@@ -46,7 +51,7 @@ export class CategoriasPage {
 
   crear() {
     this.api.crearCategoria({ nombre: this.nombre, tipo: this.tipo }).subscribe({
-      next: () => { this.nombre = ''; this.error.set(''); this.cargar(); },
+      next: () => { this.nombre = ''; this.error.set(''); this.cargar(); this.datos.notificar(); this.toast.mostrar('Categoría creada'); },
       error: (e) => this.error.set(e.error?.message ?? 'No se pudo crear'),
     });
   }

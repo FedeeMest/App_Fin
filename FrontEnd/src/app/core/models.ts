@@ -6,7 +6,9 @@ export interface Cuenta { id: number; nombre: string; tipo: TipoCuenta; moneda: 
 export interface Categoria { id: number; nombre: string; tipo: TipoCategoria; icono?: string; color?: string }
 export interface Transaccion {
   id: number; tipo: TipoTransaccion; monto: string; fecha: string; nota?: string;
-  cuenta: { id: number; nombre: string }; categoria?: { id: number; nombre: string };
+  cuenta: { id: number; nombre: string }; cuenta_destino?: { id: number; nombre: string };
+  categoria?: { id: number; nombre: string };
+  recurrente?: number | null; compra_cuotas?: number | null; // si confirma un pago previsto
 }
 export interface Pagina<T> { items: T[]; total: number; page: number; limit: number }
 export interface Resumen { mes: string; ingresos: number; gastos: number; balance: number; porCategoria: Record<string, number> }

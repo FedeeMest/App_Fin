@@ -1,133 +1,176 @@
-import { Component, inject, signal } from '@angular/core';
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
-import { Categoria, Cuenta, TipoTransaccion, Transaccion } from '../core/models';
+import { DatosService } from '../core/datos.service';
+import { MoneyPipe } from '../core/money.pipe';
+import { QuickAddService } from '../core/quick-add.service';
+import { Resumen, Transaccion } from '../core/models';
+import { IconComponent } from '../ui/icon';
+
+type FiltroTipo = '' | 'GASTO' | 'INGRESO' | 'TRANSFERENCIA';
+const POR_PAGINA = 30;
 
 @Component({
   selector: 'app-movimientos',
-  imports: [CurrencyPipe, DatePipe, FormsModule],
+  imports: [FormsModule, MoneyPipe, IconComponent],
   template: `
-    <div class="mb-4 flex items-center justify-between">
-      <h1 class="text-xl font-bold">Movimientos</h1>
-      <button class="btn" (click)="abrir()">+ Nuevo</button>
-    </div>
-
-    <div class="space-y-2">
-      @for (t of items(); track t.id) {
-        <div class="card flex items-center justify-between gap-3 !p-3">
-          <div class="min-w-0">
-            <div class="truncate font-medium">{{ t.categoria?.nombre ?? (t.tipo === 'TRANSFERENCIA' ? 'Transferencia' : 'Sin categoría') }}</div>
-            <div class="truncate text-xs text-slate-500">{{ t.fecha | date: 'dd/MM/yyyy' }} · {{ t.cuenta.nombre }}{{ t.nota ? ' · ' + t.nota : '' }}</div>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="font-semibold" [class.text-emerald-600]="t.tipo === 'INGRESO'" [class.text-rose-600]="t.tipo === 'GASTO'">
-              {{ t.tipo === 'INGRESO' ? '+' : t.tipo === 'GASTO' ? '-' : '' }}{{ +t.monto | currency: 'ARS' : 'symbol-narrow' : '1.0-2' }}
-            </span>
-            <button class="text-slate-300 hover:text-rose-600" (click)="borrar(t)" aria-label="Eliminar">✕</button>
-          </div>
-        </div>
-      } @empty { <p class="card py-8 text-center text-slate-400">Todavía no cargaste movimientos</p> }
-    </div>
-
-    @if (total() > items().length) {
-      <button class="btn-ghost mt-3 w-full" (click)="cargar(true)">Ver más</button>
-    }
-
-    @if (modal()) {
-      <div class="fixed inset-0 z-30 flex items-end bg-black/40 sm:items-center sm:justify-center" (click)="modal.set(false)">
-        <form class="max-h-[92vh] w-full space-y-3 overflow-y-auto rounded-t-3xl bg-white p-5 sm:max-w-md sm:rounded-3xl"
-              (click)="$event.stopPropagation()" (ngSubmit)="guardar()">
-          <h2 class="text-lg font-bold">Nuevo movimiento</h2>
-          <div class="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 text-center text-sm">
-            @for (t of tipos; track t.v) {
-              <button type="button" class="rounded-lg py-2" [class.bg-white]="f.tipo === t.v" [class.font-semibold]="f.tipo === t.v"
-                      (click)="f.tipo = t.v">{{ t.l }}</button>
-            }
-          </div>
-          <div><label class="label">Monto (ARS)</label>
-            <input class="input" type="number" inputmode="decimal" step="0.01" min="0.01" name="monto" [(ngModel)]="f.monto" required /></div>
-          <div><label class="label">{{ f.tipo === 'TRANSFERENCIA' ? 'Cuenta origen' : 'Cuenta' }}</label>
-            <select class="input" name="cuenta" [(ngModel)]="f.cuentaId" required>
-              @for (c of cuentas(); track c.id) { <option [ngValue]="c.id">{{ c.nombre }}</option> }
-            </select></div>
-          @if (f.tipo === 'TRANSFERENCIA') {
-            <div><label class="label">Cuenta destino</label>
-              <select class="input" name="destino" [(ngModel)]="f.cuentaDestinoId" required>
-                @for (c of cuentas(); track c.id) { <option [ngValue]="c.id">{{ c.nombre }}</option> }
-              </select></div>
-          } @else {
-            <div><label class="label">Categoría</label>
-              <select class="input" name="categoria" [(ngModel)]="f.categoriaId">
-                <option [ngValue]="null">Sin categoría</option>
-                @for (c of categoriasFiltradas(); track c.id) { <option [ngValue]="c.id">{{ c.nombre }}</option> }
-              </select></div>
-          }
-          <div><label class="label">Fecha</label><input class="input" type="date" name="fecha" [(ngModel)]="f.fecha" required /></div>
-          <div><label class="label">Nota</label><input class="input" name="nota" [(ngModel)]="f.nota" maxlength="200" /></div>
-          @if (error()) { <p class="rounded-lg bg-red-50 p-2 text-sm text-red-700">{{ error() }}</p> }
-          <div class="flex gap-2 pt-1">
-            <button type="button" class="btn-ghost flex-1" (click)="modal.set(false)">Cancelar</button>
-            <button class="btn flex-1">Guardar</button>
-          </div>
-        </form>
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <h1 class="text-2xl font-bold">Movimientos</h1>
+      <div class="flex items-center">
+        <button class="btn-ghost tap !px-2" (click)="mover(-1)" aria-label="Mes anterior"><app-icon nombre="chevron-left" /></button>
+        <span class="w-40 whitespace-nowrap text-center font-medium first-letter:uppercase">{{ tituloMes() }}</span>
+        <button class="btn-ghost tap !px-2" (click)="mover(1)" aria-label="Mes siguiente"><app-icon nombre="chevron-right" /></button>
       </div>
+    </div>
+
+    <!-- Resumen del mes -->
+    <div class="mb-3 grid grid-cols-3 gap-2">
+      <div class="card !p-3"><div class="text-xs text-slate-500">Ingresos</div><div class="font-semibold text-emerald-600">{{ resumen()?.ingresos ?? 0 | money }}</div></div>
+      <div class="card !p-3"><div class="text-xs text-slate-500">Gastos</div><div class="font-semibold text-rose-600">{{ resumen()?.gastos ?? 0 | money }}</div></div>
+      <div class="card !p-3"><div class="text-xs text-slate-500">Balance</div><div class="font-semibold">{{ resumen()?.balance ?? 0 | money }}</div></div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="mb-3 space-y-2">
+      <div class="relative">
+        <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><app-icon nombre="search" [tam]="18" /></span>
+        <input class="input !pl-10" type="search" placeholder="Buscar por nota o categoría" [ngModel]="busqueda()" (ngModelChange)="buscar($event)" aria-label="Buscar movimientos" />
+      </div>
+      <div class="flex gap-2 overflow-x-auto pb-1" role="tablist">
+        @for (f of filtros; track f.v) {
+          <button class="chip" [class.chip-on]="tipo() === f.v" role="tab" [attr.aria-selected]="tipo() === f.v" (click)="tipo.set(f.v)">{{ f.l }}</button>
+        }
+      </div>
+    </div>
+
+    <!-- Lista agrupada por día -->
+    @if (cargando()) {
+      <div class="space-y-2"><div class="skeleton h-16"></div><div class="skeleton h-16"></div><div class="skeleton h-16"></div></div>
+    } @else {
+      @for (g of grupos(); track g.fecha) {
+        <div class="mb-1 mt-4 flex items-baseline justify-between px-1 text-sm">
+          <span class="font-semibold first-letter:uppercase">{{ g.titulo }}</span>
+          @if (g.neto !== 0) { <span class="text-xs text-slate-500">{{ g.neto > 0 ? '+' : '' }}{{ g.neto | money }}</span> }
+        </div>
+        <div class="card divide-y divide-slate-100 !p-0">
+          @for (t of g.items; track t.id) {
+            <button class="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50" (click)="qa.abrir({ editar: t })">
+              <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full"
+                    [class]="t.tipo === 'INGRESO' ? 'bg-emerald-50 text-emerald-600' : t.tipo === 'GASTO' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'">
+                <app-icon [nombre]="t.tipo === 'INGRESO' ? 'arrow-down' : t.tipo === 'GASTO' ? 'arrow-up' : 'swap'" [tam]="18" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate font-medium">{{ t.categoria?.nombre ?? (t.tipo === 'TRANSFERENCIA' ? 'Transferencia' : 'Sin categoría') }}</span>
+                <span class="block truncate text-xs text-slate-500">
+                  {{ t.tipo === 'TRANSFERENCIA' ? t.cuenta.nombre + ' → ' + (t.cuenta_destino?.nombre ?? '') : t.cuenta.nombre }}{{ t.nota ? ' · ' + t.nota : '' }}
+                </span>
+              </span>
+              <span class="font-semibold" [class.text-emerald-600]="t.tipo === 'INGRESO'" [class.text-rose-600]="t.tipo === 'GASTO'">
+                {{ t.tipo === 'INGRESO' ? '+' : t.tipo === 'GASTO' ? '-' : '' }}{{ +t.monto | money }}
+              </span>
+            </button>
+          }
+        </div>
+      } @empty {
+        <div class="card mt-4 py-10 text-center">
+          @if (busqueda() || tipo()) {
+            <p class="text-slate-500">No hay movimientos con ese filtro.</p>
+            <button class="btn-ghost mt-2 text-brand-700" (click)="limpiar()">Quitar filtros</button>
+          } @else {
+            <p class="text-slate-500">No hay movimientos en {{ tituloMes() }}.</p>
+            <button class="btn mt-3" (click)="qa.abrir()">Cargar un movimiento</button>
+          }
+        </div>
+      }
+
+      @if (total() > items().length) {
+        <button class="btn-ghost tap mt-4 w-full" (click)="cargarMas()">Ver más ({{ total() - items().length }})</button>
+      }
     }
   `,
 })
 export class MovimientosPage {
   private api = inject(ApiService);
+  private datos = inject(DatosService);
+  qa = inject(QuickAddService);
+
+  filtros: { v: FiltroTipo; l: string }[] = [
+    { v: '', l: 'Todos' }, { v: 'GASTO', l: 'Gastos' }, { v: 'INGRESO', l: 'Ingresos' }, { v: 'TRANSFERENCIA', l: 'Transferencias' },
+  ];
+  mes = signal(new Date().toLocaleDateString('en-CA').slice(0, 7));
+  tipo = signal<FiltroTipo>('');
+  busqueda = signal('');
+  private consulta = signal('');   // la búsqueda se aplica unos instantes después de escribir
+  private temporizador?: ReturnType<typeof setTimeout>;
+
   items = signal<Transaccion[]>([]);
   total = signal(0);
-  cuentas = signal<Cuenta[]>([]);
-  categorias = signal<Categoria[]>([]);
-  modal = signal(false);
-  error = signal('');
-  private page = 1;
+  resumen = signal<Resumen | null>(null);
+  cargando = signal(true);
+  private pagina = 1;
 
-  tipos: { v: TipoTransaccion; l: string }[] = [
-    { v: 'GASTO', l: 'Gasto' }, { v: 'INGRESO', l: 'Ingreso' }, { v: 'TRANSFERENCIA', l: 'Transf.' },
-  ];
-  f = this.vacio();
+  tituloMes = computed(() => {
+    const [y, m] = this.mes().split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  });
+
+  grupos = computed(() => {
+    const hoy = new Date().toLocaleDateString('en-CA');
+    const ayerD = new Date(); ayerD.setDate(ayerD.getDate() - 1);
+    const ayer = ayerD.toLocaleDateString('en-CA');
+    const mapa = new Map<string, Transaccion[]>();
+    for (const t of this.items()) mapa.set(t.fecha, [...(mapa.get(t.fecha) ?? []), t]);
+    return [...mapa.entries()].map(([fecha, items]) => {
+      const [y, m, d] = fecha.split('-').map(Number);
+      const titulo = fecha === hoy ? 'Hoy' : fecha === ayer ? 'Ayer'
+        : new Date(y, m - 1, d).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' });
+      const neto = items.reduce((s, t) => s + (t.tipo === 'INGRESO' ? Number(t.monto) : t.tipo === 'GASTO' ? -Number(t.monto) : 0), 0);
+      return { fecha, titulo, items, neto };
+    });
+  });
 
   constructor() {
-    this.api.cuentas().subscribe((c) => this.cuentas.set(c));
-    this.api.categorias().subscribe((c) => this.categorias.set(c));
-    this.cargar();
+    // Recarga al cambiar mes, filtro, búsqueda o cuando algo se creó/editó/borró en cualquier parte
+    effect(() => {
+      this.mes(); this.tipo(); this.consulta(); this.datos.version();
+      untracked(() => this.cargar());
+    });
   }
 
-  private vacio() {
-    return { tipo: 'GASTO' as TipoTransaccion, monto: null as number | null, cuentaId: null as number | null,
-      cuentaDestinoId: null as number | null, categoriaId: null as number | null,
-      fecha: new Date().toLocaleDateString('en-CA'), nota: '' };
+  buscar(texto: string) {
+    this.busqueda.set(texto);
+    clearTimeout(this.temporizador);
+    this.temporizador = setTimeout(() => this.consulta.set(texto.trim()), 300);
   }
 
-  categoriasFiltradas() { return this.categorias().filter((c) => c.tipo === this.f.tipo); }
+  limpiar() { this.busqueda.set(''); this.consulta.set(''); this.tipo.set(''); }
 
-  cargar(mas = false) {
-    this.page = mas ? this.page + 1 : 1;
-    this.api.transacciones({ page: this.page, limit: 20 }).subscribe((r) => {
-      this.items.set(mas ? [...this.items(), ...r.items] : r.items);
+  mover(delta: number) {
+    const [y, m] = this.mes().split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    this.mes.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  private filtros_() {
+    const [y, m] = this.mes().split('-').map(Number);
+    const ultimo = new Date(y, m, 0).getDate();
+    return { desde: `${this.mes()}-01`, hasta: `${this.mes()}-${String(ultimo).padStart(2, '0')}`, tipo: this.tipo(), q: this.consulta() };
+  }
+
+  private cargar() {
+    this.pagina = 1;
+    this.api.transacciones({ ...this.filtros_(), page: 1, limit: POR_PAGINA }).subscribe({
+      next: (r) => { this.items.set(r.items); this.total.set(r.total); this.cargando.set(false); },
+      error: () => this.cargando.set(false),
+    });
+    this.api.resumen(this.mes()).subscribe((r) => this.resumen.set(r));
+  }
+
+  cargarMas() {
+    this.pagina += 1;
+    this.api.transacciones({ ...this.filtros_(), page: this.pagina, limit: POR_PAGINA }).subscribe((r) => {
+      this.items.set([...this.items(), ...r.items]);
       this.total.set(r.total);
     });
-  }
-
-  abrir() {
-    this.f = this.vacio();
-    this.f.cuentaId = this.cuentas()[0]?.id ?? null;
-    this.error.set('');
-    this.modal.set(true);
-  }
-
-  guardar() {
-    this.api.crearTransaccion(this.f).subscribe({
-      next: () => { this.modal.set(false); this.cargar(); },
-      error: (e) => this.error.set(e.error?.message ?? 'No se pudo guardar'),
-    });
-  }
-
-  borrar(t: Transaccion) {
-    if (!confirm('¿Eliminar este movimiento?')) return;
-    this.api.borrarTransaccion(t.id).subscribe(() => this.cargar());
   }
 }

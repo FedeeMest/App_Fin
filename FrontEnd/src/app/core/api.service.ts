@@ -14,12 +14,13 @@ export class ApiService {
   categorias() { return this.http.get<Categoria[]>(`${this.base}/categorias`); }
   crearCategoria(d: { nombre: string; tipo: string }) { return this.http.post(`${this.base}/categorias`, d); }
 
-  transacciones(f: { page?: number; limit?: number; desde?: string; hasta?: string; cuentaId?: number; categoriaId?: number } = {}) {
+  transacciones(f: { page?: number; limit?: number; desde?: string; hasta?: string; cuentaId?: number; categoriaId?: number; tipo?: string; q?: string } = {}) {
     let p = new HttpParams();
     for (const [k, v] of Object.entries(f)) if (v !== undefined && v !== null && v !== '') p = p.set(k, String(v));
     return this.http.get<Pagina<Transaccion>>(`${this.base}/transacciones`, { params: p });
   }
-  crearTransaccion(d: unknown) { return this.http.post(`${this.base}/transacciones`, d); }
+  crearTransaccion(d: unknown) { return this.http.post<{ id: number }>(`${this.base}/transacciones`, d); }
+  actualizarTransaccion(id: number, d: unknown) { return this.http.put(`${this.base}/transacciones/${id}`, d); }
   borrarTransaccion(id: number) { return this.http.delete(`${this.base}/transacciones/${id}`); }
   resumen(mes: string) { return this.http.get<Resumen>(`${this.base}/transacciones/resumen`, { params: { mes } }); }
 
@@ -41,6 +42,6 @@ export class ApiService {
   borrarPresupuesto(id: number) { return this.http.delete(`${this.base}/presupuestos/${id}`); }
 
   confirmarPago(d: { origen: 'RECURRENTE' | 'CUOTA'; id: number; fecha?: string; nro_cuota?: number | null; cuentaId?: number | null; monto?: number; fecha_real?: string }) {
-    return this.http.post(`${this.base}/calendario/confirmar`, d);
+    return this.http.post<{ id: number }>(`${this.base}/calendario/confirmar`, d);
   }
 }

@@ -1,18 +1,24 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { DatosService } from '../core/datos.service';
+import { ToastService } from '../core/toast.service';
+
+import { MoneyPipe } from '../core/money.pipe';
+import { SheetComponent } from '../ui/sheet';
+
 import { Categoria, ItemPresupuesto, Presupuestos } from '../core/models';
 
 @Component({
   selector: 'app-presupuestos',
-  imports: [CurrencyPipe, FormsModule],
+  imports: [MoneyPipe, FormsModule, SheetComponent],
   template: `
-    <div class="mb-4 flex items-center justify-between gap-2">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Presupuestos</h1>
       <div class="flex items-center gap-1">
         <button class="btn-ghost" (click)="mover(-1)" aria-label="Mes anterior">‹</button>
-        <span class="w-32 text-center font-medium capitalize">{{ tituloMes() }}</span>
+        <span class="w-40 whitespace-nowrap text-center font-medium first-letter:uppercase">{{ tituloMes() }}</span>
         <button class="btn-ghost" (click)="mover(1)" aria-label="Mes siguiente">›</button>
       </div>
     </div>
@@ -20,9 +26,9 @@ import { Categoria, ItemPresupuesto, Presupuestos } from '../core/models';
     @if (data()?.diario; as d) {
       <div class="card mb-4 bg-brand-600 !text-white">
         <div class="text-sm opacity-80">Podés gastar hoy</div>
-        <div class="text-3xl font-bold">{{ d.por_dia | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div>
+        <div class="text-3xl font-bold">{{ redondear(d.por_dia) | money }}</div>
         <div class="mt-1 text-xs opacity-80">
-          Te quedan {{ d.restante_mes | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }} para {{ d.dias_restantes }} día(s), descontando pagos previstos
+          Te quedan {{ d.restante_mes | money }} para {{ d.dias_restantes }} día(s), descontando pagos previstos
         </div>
       </div>
     } @else if (!tieneTotal()) {
@@ -40,7 +46,7 @@ import { Categoria, ItemPresupuesto, Presupuestos } from '../core/models';
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="truncate font-medium">{{ p.categoria?.nombre ?? 'Total del mes' }}</div>
-              <div class="text-xs text-slate-500">Límite {{ p.monto_limite | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</div>
+              <div class="text-xs text-slate-500">Límite {{ p.monto_limite | money }}</div>
             </div>
             <div class="flex items-center gap-2">
               <button class="text-xs text-brand-700 underline" (click)="abrir(p)">Editar</button>
@@ -52,18 +58,18 @@ import { Categoria, ItemPresupuesto, Presupuestos } from '../core/models';
                  [class.bg-brand-500]="p.estado === 'OK'" [class.bg-amber-500]="p.estado === 'ATENCION'" [class.bg-rose-500]="p.estado === 'EXCEDIDO'"></div>
           </div>
           <div class="mt-2 flex flex-wrap items-center justify-between gap-x-3 text-sm">
-            <span>Gastado {{ p.gastado | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}
-              @if (p.previsto > 0) { <span class="text-slate-500">+ previsto {{ p.previsto | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</span> }</span>
+            <span>Gastado {{ p.gastado | money }}
+              @if (p.previsto > 0) { <span class="text-slate-500">+ previsto {{ p.previsto | money }}</span> }</span>
             <span class="font-semibold" [class.text-rose-600]="p.restante < 0">
-              {{ p.restante >= 0 ? 'Quedan ' : 'Excedido ' }}{{ abs(p.restante) | currency: 'ARS' : 'symbol-narrow' : '1.0-0' }}</span>
+              {{ p.restante >= 0 ? 'Quedan ' : 'Excedido ' }}{{ abs(p.restante) | money }}</span>
           </div>
         </div>
       } @empty { <p class="card py-8 text-center text-slate-400">Todavía no definiste presupuestos</p> }
     </div>
 
     @if (modal()) {
-      <div class="fixed inset-0 z-30 flex items-end bg-black/40 sm:items-center sm:justify-center" (click)="modal.set(false)">
-        <form class="w-full space-y-3 rounded-t-3xl bg-white p-5 sm:max-w-md sm:rounded-3xl" (click)="$event.stopPropagation()" (ngSubmit)="guardar()">
+      <app-sheet [abierto]="true" (cerrar)="modal.set(false)">
+        <form class="space-y-3" (ngSubmit)="guardar()">
           <h2 class="text-lg font-bold">Límite mensual</h2>
           <div><label class="label">Para</label>
             <select class="input" name="c" [(ngModel)]="f.categoriaId">
@@ -79,12 +85,14 @@ import { Categoria, ItemPresupuesto, Presupuestos } from '../core/models';
             <button class="btn flex-1">Guardar</button>
           </div>
         </form>
-      </div>
+      </app-sheet>
     }
   `,
 })
 export class PresupuestosPage {
   private api = inject(ApiService);
+  private datos = inject(DatosService);
+  private toast = inject(ToastService);
   mes = signal(new Date().toLocaleDateString('en-CA').slice(0, 7));
   data = signal<Presupuestos | null>(null);
   categorias = signal<Categoria[]>([]);
@@ -92,6 +100,7 @@ export class PresupuestosPage {
   error = signal('');
   f = { categoriaId: null as number | null, monto_limite: null as number | null };
 
+  redondear = Math.round;
   tieneTotal = computed(() => (this.data()?.items ?? []).some((i) => i.categoria === null));
   tituloMes = computed(() => {
     const [y, m] = this.mes().split('-').map(Number);
@@ -122,13 +131,13 @@ export class PresupuestosPage {
 
   guardar() {
     this.api.guardarPresupuesto({ categoriaId: this.f.categoriaId, monto_limite: Number(this.f.monto_limite) }).subscribe({
-      next: () => { this.modal.set(false); this.recargar(); },
+      next: () => { this.modal.set(false); this.recargar(); this.toast.mostrar('Presupuesto guardado'); },
       error: (e) => this.error.set(e.error?.message ?? 'No se pudo guardar'),
     });
   }
 
   borrar(p: ItemPresupuesto) {
     if (!confirm(`¿Eliminar el límite de "${p.categoria?.nombre ?? 'Total del mes'}"?`)) return;
-    this.api.borrarPresupuesto(p.id).subscribe(() => this.recargar());
+    this.api.borrarPresupuesto(p.id).subscribe(() => { this.recargar(); this.toast.mostrar('Presupuesto eliminado'); });
   }
 }

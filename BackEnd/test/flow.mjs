@@ -109,3 +109,24 @@ r = await call('POST', '/recurrentes', { descripcion: 'Gym', tipo: 'GASTO', mont
 r = await call('PATCH', `/recurrentes/${gym}/activo`, { activo: false }); ok(r.j.activo === false, 'pausar', r);
 r = await call('GET', `/calendario?mes=${mes}`); ok(!r.j.eventos.some((e) => e.descripcion === 'Gym'), 'pausado no aparece en calendario', null);
 r = await call('GET', '/calendario?mes=2026-13'); ok(r.s === 400, 'mes inválido -> 400', r);
+
+// ---- Filtros y edición de movimientos ----
+r = await call('GET', '/transacciones?tipo=GASTO&limit=100'); ok(r.j.items.length > 0 && r.j.items.every((t) => t.tipo === 'GASTO'), 'filtro por tipo', r.j.items.map((t) => t.tipo));
+r = await call('GET', '/transacciones?q=compra'); ok(r.j.total === 1 && r.j.items[0].nota === 'compra', 'búsqueda por nota', r.j.total);
+r = await call('GET', '/transacciones?q=Supermercado'); ok(r.j.total >= 1, 'búsqueda por nombre de categoría', r.j.total);
+r = await call('GET', '/transacciones?q=zzzz'); ok(r.j.total === 0, 'búsqueda sin resultados', r.j.total);
+r = await call('GET', '/transacciones?tipo=TRANSFERENCIA'); ok(r.j.total === 1 && r.j.items[0].cuenta_destino?.nombre === 'Efectivo', 'transferencia trae cuenta destino', r.j.items[0]);
+const compraTx = (await call('GET', '/transacciones?q=compra')).j.items[0];
+r = await call('PUT', `/transacciones/${compraTx.id}`, { tipo: 'GASTO', monto: 25000, fecha: hoy, cuentaId: banco, categoriaId: catSuper.id, nota: 'compra editada' }); ok(r.s === 200, 'editar movimiento', r);
+r = await call('GET', '/transacciones?q=editada'); ok(r.j.items[0]?.monto === '25000.00' || Number(r.j.items[0]?.monto) === 25000, 'la edición se guardó', r.j.items[0]);
+r = await call('GET', '/cuentas'); ok(r.j.find((c) => c.nombre === 'Banco').saldo === 75000, 'el saldo refleja la edición (80000 - 5000)', r.j);
+r = await call('PUT', `/transacciones/${compraTx.id}`, { tipo: 'GASTO', monto: 100, fecha: hoy, cuentaId: banco, categoriaId: catSueldo.id }); ok(r.s === 400, 'categoría de otro tipo -> 400', r);
+r = await call('POST', '/transacciones', { tipo: 'GASTO', monto: 100, fecha: hoy, cuentaId: banco, categoriaId: catSueldo.id }); ok(r.s === 400, 'alta con categoría de otro tipo -> 400', r);
+r = await call('PUT', '/transacciones/99999', { tipo: 'GASTO', monto: 1, fecha: hoy, cuentaId: banco }); ok(r.s === 404, 'editar inexistente -> 404', r);
+tok = ''; r = await call('POST', '/auth/login', { username: 'otro', password: 'password123' }); tok = r.j.token;
+r = await call('PUT', `/transacciones/${compraTx.id}`, { tipo: 'GASTO', monto: 1, fecha: hoy, cuentaId: banco }); ok(r.s === 404, 'no puede editar movimientos de otro usuario', r);
+tok = tokFede;
+// Un pago confirmado no puede cambiar de tipo
+const cuotaConf = await call('POST', '/calendario/confirmar', { origen: 'CUOTA', id: compra, nro_cuota: 1 });
+r = await call('PUT', `/transacciones/${cuotaConf.j.id}`, { tipo: 'INGRESO', monto: 30000, fecha: hoy, cuentaId: visa }); ok(r.s === 400, 'pago confirmado no cambia de tipo', r);
+r = await call('PUT', `/transacciones/${cuotaConf.j.id}`, { tipo: 'GASTO', monto: 31000, fecha: hoy, cuentaId: visa, categoriaId: catSuper.id }); ok(r.s === 200, 'pago confirmado sí admite corregir el monto', r);
