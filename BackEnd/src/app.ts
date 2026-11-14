@@ -9,6 +9,7 @@ import { authRouter } from './auth/auth.routes.js';
 import { cuentaRouter } from './cuenta/cuenta.routes.js';
 import { categoriaRouter } from './categoria/categoria.routes.js';
 import { transaccionRouter } from './transaccion/transaccion.routes.js';
+import { cuotaRouter } from './cuota/cuota.routes.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -32,6 +33,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/cuentas', cuentaRouter);
 app.use('/api/categorias', categoriaRouter);
 app.use('/api/transacciones', transaccionRouter);
+app.use('/api/cuotas', cuotaRouter);
 
 app.get('/', (_req, res) => res.send('App_Fin API funcionando'));
 app.use((_req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));

@@ -49,6 +49,7 @@ Montos: `decimal(14,2)`; nunca `number` flotante.
 | Cuenta | nombre, tipo, moneda, saldo_inicial, activa | Hecho |
 | Categoria | nombre, tipo, icono, color, padre | Hecho |
 | Transaccion | fecha, monto, tipo, cuenta, categoria, nota, cuenta_destino | Hecho |
+| CompraCuotas | descripción, monto_total, cantidad_cuotas, fecha_primera_cuota, cuenta, categoría | Hecho |
 | Recurrente | monto, frecuencia, proxima_fecha, cuenta, categoria | Pendiente |
 | Presupuesto | periodo, categoria, monto_limite | Pendiente |
 | Meta / AporteMeta | objetivo, fecha_limite, aportes | Pendiente |
@@ -77,3 +78,13 @@ Toda consulta filtra por `usuario` del token.
 Angular 21 standalone + Tailwind 3 + chart.js. Pantallas: login/registro, inicio (saldo, resumen mensual,
 gráfico por categoría), movimientos (alta en hoja inferior, paginación), cuentas, categorías.
 Entornos: `environment.ts` (dev) y `environment.prod.ts` (reemplazo en build de producción).
+
+## 7. Compras en cuotas
+
+Endpoints (`/api/cuotas`): listado (`?estado=activas|finalizadas`), `/resumen` (cuotas del mes, deuda total,
+proyección de N meses), detalle con calendario de cuotas, alta y baja.
+
+Reglas: la cuota k vence `fecha_primera_cuota + (k-1)` meses (si el día no existe, se usa el último del mes);
+una cuota se considera paga cuando ya venció; la última cuota absorbe el redondeo para que la suma sea exacta.
+Nada de esto se guarda: se calcula a la fecha de hoy. Pendiente: generar el gasto en Movimientos al vencer cada
+cuota y marcar cuotas pagadas manualmente.

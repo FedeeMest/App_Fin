@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { Categoria, Cuenta, Pagina, Resumen, Transaccion } from './models';
+import { Categoria, CompraCuotas, Cuenta, Pagina, Resumen, ResumenCuotas, Transaccion } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -22,4 +22,11 @@ export class ApiService {
   crearTransaccion(d: unknown) { return this.http.post(`${this.base}/transacciones`, d); }
   borrarTransaccion(id: number) { return this.http.delete(`${this.base}/transacciones/${id}`); }
   resumen(mes: string) { return this.http.get<Resumen>(`${this.base}/transacciones/resumen`, { params: { mes } }); }
+
+  cuotas(estado?: 'activas' | 'finalizadas') {
+    return this.http.get<CompraCuotas[]>(`${this.base}/cuotas`, { params: estado ? { estado } : {} });
+  }
+  resumenCuotas(meses = 12) { return this.http.get<ResumenCuotas>(`${this.base}/cuotas/resumen`, { params: { meses } }); }
+  crearCompraCuotas(d: unknown) { return this.http.post(`${this.base}/cuotas`, d); }
+  borrarCompraCuotas(id: number) { return this.http.delete(`${this.base}/cuotas/${id}`); }
 }

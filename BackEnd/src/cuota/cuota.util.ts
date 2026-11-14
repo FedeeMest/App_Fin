@@ -1,0 +1,55 @@
+import type { CompraCuotas } from './cuota.entity.js';
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Suma `meses` a una fecha YYYY-MM-DD; si el día no existe en ese mes, usa el último día. */
+export function sumarMeses(fecha: string, meses: number): string {
+  const [y, m, d] = fecha.split('-').map(Number);
+  const idx = m - 1 + meses;
+  const anio = y + Math.floor(idx / 12);
+  const mes = ((idx % 12) + 12) % 12;
+  const ultimo = new Date(anio, mes + 1, 0).getDate();
+  return `${anio}-${pad(mes + 1)}-${pad(Math.min(d, ultimo))}`;
+}
+
+/** Importe de la cuota k (1..n). La última absorbe el redondeo para que sumen exactamente el total. */
+export function montoCuota(c: Pick<CompraCuotas, 'monto_total' | 'cantidad_cuotas'>, k: number): number {
+  const total = Math.round(Number(c.monto_total) * 100);
+  const base = Math.floor(total / c.cantidad_cuotas);
+  return (k === c.cantidad_cuotas ? total - base * (c.cantidad_cuotas - 1) : base) / 100;
+}
+
+export const vencimiento = (c: Pick<CompraCuotas, 'fecha_primera_cuota'>, k: number) => sumarMeses(c.fecha_primera_cuota, k - 1);
+
+export function hoy(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Estado calculado de una compra a la fecha `ref`. Una cuota se considera paga si ya venció. */
+export function estadoCompra(c: CompraCuotas, ref = hoy()) {
+  let pagadas = 0;
+  for (let k = 1; k <= c.cantidad_cuotas; k++) if (vencimiento(c, k) <= ref) pagadas = k;
+  const restantes = c.cantidad_cuotas - pagadas;
+  let montoRestante = 0;
+  for (let k = pagadas + 1; k <= c.cantidad_cuotas; k++) montoRestante += montoCuota(c, k);
+  return {
+    cuotas_pagadas: pagadas,
+    cuotas_restantes: restantes,
+    monto_cuota: montoCuota(c, 1),
+    monto_restante: Number(montoRestante.toFixed(2)),
+    proximo_vencimiento: restantes > 0 ? vencimiento(c, pagadas + 1) : null,
+    finalizada: restantes === 0,
+  };
+}
+
+/** Total de cuotas que vencen en el mes `YYYY-MM` entre todas las compras. */
+export function totalDelMes(compras: CompraCuotas[], mes: string): number {
+  let total = 0;
+  for (const c of compras) {
+    for (let k = 1; k <= c.cantidad_cuotas; k++) {
+      if (vencimiento(c, k).slice(0, 7) === mes) total += montoCuota(c, k);
+    }
+  }
+  return Number(total.toFixed(2));
+}

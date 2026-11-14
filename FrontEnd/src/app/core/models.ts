@@ -10,3 +10,14 @@ export interface Transaccion {
 }
 export interface Pagina<T> { items: T[]; total: number; page: number; limit: number }
 export interface Resumen { mes: string; ingresos: number; gastos: number; balance: number; porCategoria: Record<string, number> }
+
+export interface CompraCuotas {
+  id: number; descripcion: string; monto_total: number; cantidad_cuotas: number; fecha_primera_cuota: string;
+  cuenta: { id: number; nombre: string } | null; categoria: { id: number; nombre: string } | null;
+  cuotas_pagadas: number; cuotas_restantes: number; monto_cuota: number; monto_restante: number;
+  proximo_vencimiento: string | null; finalizada: boolean;
+}
+export interface ResumenCuotas {
+  mes_actual: string; total_mes_actual: number; deuda_total: number; compras_activas: number;
+  proyeccion: { mes: string; total: number }[];
+}

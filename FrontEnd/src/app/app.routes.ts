@@ -13,6 +13,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'inicio' },
       { path: 'inicio', loadComponent: () => import('./pages/dashboard').then((m) => m.DashboardPage) },
       { path: 'movimientos', loadComponent: () => import('./pages/movimientos').then((m) => m.MovimientosPage) },
+      { path: 'cuotas', loadComponent: () => import('./pages/cuotas').then((m) => m.CuotasPage) },
       { path: 'cuentas', loadComponent: () => import('./pages/cuentas').then((m) => m.CuentasPage) },
       { path: 'categorias', loadComponent: () => import('./pages/categorias').then((m) => m.CategoriasPage) },
     ],

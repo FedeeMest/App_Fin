@@ -33,7 +33,7 @@ import { AuthService } from '../core/auth.service';
       </div>
 
       <!-- Bottom nav (móvil) -->
-      <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+      <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
         @for (l of links; track l.path) {
           <a [routerLink]="l.path" routerLinkActive="text-brand-700 font-semibold"
              class="flex flex-col items-center py-2 text-xs text-slate-500">
@@ -49,7 +49,8 @@ export class MainLayout {
   links = [
     { path: '/inicio', label: 'Inicio', icon: '🏠' },
     { path: '/movimientos', label: 'Movimientos', icon: '🧾' },
+    { path: '/cuotas', label: 'Cuotas', icon: '💳' },
     { path: '/cuentas', label: 'Cuentas', icon: '🏦' },
-    { path: '/categorias', label: 'Categorías', icon: '🏷️' },
+    { path: '/categorias', label: 'Categ.', icon: '🏷️' },
   ];
 }
