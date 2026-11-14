@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { Calendario, Categoria, CompraCuotas, Cuenta, Pagina, Presupuestos, Recurrente, Resumen, ResumenCuotas, Transaccion } from './models';
+import { Calendario, Categoria, CompraCuotas, Cuenta, ResumenTarjeta, Pagina, Presupuestos, Recurrente, Resumen, ResumenCuotas, Transaccion } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -9,7 +9,10 @@ export class ApiService {
   private base = environment.apiUrl;
 
   cuentas() { return this.http.get<Cuenta[]>(`${this.base}/cuentas`); }
-  crearCuenta(d: { nombre: string; tipo: string; saldo_inicial: number }) { return this.http.post(`${this.base}/cuentas`, d); }
+  crearCuenta(d: { nombre: string; tipo: string; saldo_inicial: number; limite_credito?: number | null; dia_cierre?: number | null; dia_vencimiento?: number | null }) { return this.http.post(`${this.base}/cuentas`, d); }
+  actualizarCuenta(id: number, d: { nombre?: string; limite_credito?: number | null; dia_cierre?: number | null; dia_vencimiento?: number | null }) { return this.http.put(`${this.base}/cuentas/${id}`, d); }
+  resumenTarjeta(id: number, mes: string) { return this.http.get<ResumenTarjeta>(`${this.base}/cuentas/${id}/resumen`, { params: { mes } }); }
+  pagarResumen(id: number, d: { mes: string; cuentaOrigenId: number; fecha?: string }) { return this.http.post<{ cuotas_pagadas: number; total: number }>(`${this.base}/cuentas/${id}/resumen/pagar`, d); }
 
   categorias() { return this.http.get<Categoria[]>(`${this.base}/categorias`); }
   crearCategoria(d: { nombre: string; tipo: string }) { return this.http.post(`${this.base}/categorias`, d); }

@@ -4,20 +4,21 @@ import { authMiddleware, AuthRequest } from '../shared/middleware/auth.middlewar
 import { CompraCuotas } from './cuota.entity.js';
 import { Cuenta } from '../cuenta/cuenta.entity.js';
 import { Categoria } from '../categoria/categoria.entity.js';
+import { cuotasConfirmadas, confirmadasSiTarjeta } from './cuota.service.js';
 import { estadoCompra, hoy, sumarMeses, totalDelMes, vencimiento, montoCuota } from './cuota.util.js';
 
 export const cuotaRouter = Router();
 cuotaRouter.use(authMiddleware);
 
-const serializar = (c: CompraCuotas) => ({
+const serializar = (c: CompraCuotas, conf: Map<number, Set<number>>) => ({
   id: c.id,
   descripcion: c.descripcion,
   monto_total: Number(c.monto_total),
   cantidad_cuotas: c.cantidad_cuotas,
   fecha_primera_cuota: c.fecha_primera_cuota,
-  cuenta: c.cuenta ? { id: c.cuenta.id, nombre: c.cuenta.nombre } : null,
+  cuenta: c.cuenta ? { id: c.cuenta.id, nombre: c.cuenta.nombre, tipo: c.cuenta.tipo } : null,
   categoria: c.categoria ? { id: c.categoria.id, nombre: c.categoria.nombre } : null,
-  ...estadoCompra(c),
+  ...estadoCompra(c, hoy(), confirmadasSiTarjeta(c, conf)),
 });
 
 // Lista de compras. ?estado=activas|finalizadas (por defecto todas)
@@ -26,7 +27,8 @@ cuotaRouter.get('/', async (req: AuthRequest, res: Response) => {
   const compras = await em.find(CompraCuotas, { usuario: req.userId }, {
     populate: ['cuenta', 'categoria'], orderBy: { fecha_primera_cuota: 'desc', id: 'desc' },
   });
-  let out = compras.map(serializar);
+  const conf = await cuotasConfirmadas(em, req.userId as number);
+  let out = compras.map((c) => serializar(c, conf));
   if (req.query.estado === 'activas') out = out.filter((c) => !c.finalizada);
   if (req.query.estado === 'finalizadas') out = out.filter((c) => c.finalizada);
   res.json(out);
@@ -35,7 +37,8 @@ cuotaRouter.get('/', async (req: AuthRequest, res: Response) => {
 // Resumen: cuotas del mes, deuda total y proyección de los próximos N meses (?meses=12)
 cuotaRouter.get('/resumen', async (req: AuthRequest, res: Response) => {
   const em = orm.em.fork();
-  const compras = await em.find(CompraCuotas, { usuario: req.userId });
+  const compras = await em.find(CompraCuotas, { usuario: req.userId }, { populate: ['cuenta'] });
+  const conf = await cuotasConfirmadas(em, req.userId as number);
   const n = Math.min(36, Math.max(1, Number(req.query.meses) || 12));
   const mesActual = hoy().slice(0, 7);
 
@@ -43,7 +46,7 @@ cuotaRouter.get('/resumen', async (req: AuthRequest, res: Response) => {
     const mes = sumarMeses(`${mesActual}-01`, i).slice(0, 7);
     return { mes, total: totalDelMes(compras, mes) };
   });
-  const estados = compras.map((c) => estadoCompra(c));
+  const estados = compras.map((c) => estadoCompra(c, hoy(), confirmadasSiTarjeta(c, conf)));
 
   res.json({
     mes_actual: mesActual,
@@ -59,10 +62,13 @@ cuotaRouter.get('/:id', async (req: AuthRequest, res: Response) => {
   const c = await em.findOne(CompraCuotas, { id: Number(req.params.id), usuario: req.userId }, { populate: ['cuenta', 'categoria'] });
   if (!c) return res.status(404).json({ message: 'Compra no encontrada' });
   const ref = hoy();
+  const conf = await cuotasConfirmadas(em, req.userId as number);
+  const confC = confirmadasSiTarjeta(c, conf);
   const cuotas = Array.from({ length: c.cantidad_cuotas }, (_, i) => ({
-    numero: i + 1, vencimiento: vencimiento(c, i + 1), monto: montoCuota(c, i + 1), pagada: vencimiento(c, i + 1) <= ref,
+    numero: i + 1, vencimiento: vencimiento(c, i + 1), monto: montoCuota(c, i + 1),
+    pagada: confC ? confC.has(i + 1) : vencimiento(c, i + 1) <= ref,
   }));
-  res.json({ ...serializar(c), cuotas });
+  res.json({ ...serializar(c, conf), cuotas });
 });
 
 cuotaRouter.post('/', async (req: AuthRequest, res: Response) => {

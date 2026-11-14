@@ -108,9 +108,13 @@ const fechaLocal = (dias = 0) => {
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
                   <span class="font-semibold" [class.text-emerald-600]="e.tipo === 'INGRESO'">{{ e.tipo === 'INGRESO' ? '+' : '' }}{{ e.monto | money }}</span>
-                  <button class="btn tap !px-3 !py-1.5 text-sm" [disabled]="confirmando() === clave(e)" (click)="confirmar(e)">
-                    {{ e.tipo === 'INGRESO' ? 'Cobrado' : 'Pagado' }}
-                  </button>
+                  @if (e.tarjeta && e.cuentaId) {
+                    <a class="btn-ghost tap !px-3 !py-1.5 text-sm" [routerLink]="['/tarjetas', e.cuentaId]" [queryParams]="{ mes: e.fecha.slice(0, 7) }">Resumen</a>
+                  } @else {
+                    <button class="btn tap !px-3 !py-1.5 text-sm" [disabled]="confirmando() === clave(e)" (click)="confirmar(e)">
+                      {{ e.tipo === 'INGRESO' ? 'Cobrado' : 'Pagado' }}
+                    </button>
+                  }
                 </div>
               </div>
             } @empty {
@@ -180,10 +184,20 @@ const fechaLocal = (dias = 0) => {
               <a routerLink="/cuentas" class="flex items-center text-sm text-brand-700">Gestionar <app-icon nombre="chevron-right" [tam]="16" /></a>
             </div>
             @for (c of datos.cuentas(); track c.id) {
-              <div class="flex items-center justify-between border-t border-slate-100 py-2 text-sm first:border-0">
-                <span class="flex items-center gap-2"><app-icon nombre="wallet" [tam]="16" /> {{ c.nombre }}</span>
-                <span class="font-semibold" [class.text-rose-600]="c.saldo < 0">{{ c.saldo | money }}</span>
-              </div>
+              @if (c.tipo === 'TARJETA') {
+                <a [routerLink]="['/tarjetas', c.id]" class="flex items-center justify-between border-t border-slate-100 py-2 text-sm first:border-0">
+                  <span class="flex items-center gap-2"><app-icon nombre="card" [tam]="16" /> {{ c.nombre }}</span>
+                  <span class="text-right">
+                    @if (c.disponible != null) { <span class="font-semibold">{{ c.disponible | money }}</span> <span class="ml-1 text-xs text-slate-500">disp.</span> }
+                    @else { <span class="font-semibold">{{ c.deuda_cuotas ?? 0 | money }}</span> <span class="ml-1 text-xs text-slate-500">en cuotas</span> }
+                  </span>
+                </a>
+              } @else {
+                <div class="flex items-center justify-between border-t border-slate-100 py-2 text-sm first:border-0">
+                  <span class="flex items-center gap-2"><app-icon nombre="wallet" [tam]="16" /> {{ c.nombre }}</span>
+                  <span class="font-semibold" [class.text-rose-600]="c.saldo < 0">{{ c.saldo | money }}</span>
+                </div>
+              }
             }
           </section>
 

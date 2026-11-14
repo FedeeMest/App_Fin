@@ -17,6 +17,7 @@ export const routes: Routes = [
       { path: 'mas', loadComponent: () => import('./pages/mas').then((m) => m.MasPage) },
       { path: 'presupuestos', loadComponent: () => import('./pages/presupuestos').then((m) => m.PresupuestosPage) },
       { path: 'cuotas', loadComponent: () => import('./pages/cuotas').then((m) => m.CuotasPage) },
+      { path: 'tarjetas/:id', loadComponent: () => import('./pages/tarjeta').then((m) => m.TarjetaPage) },
       { path: 'cuentas', loadComponent: () => import('./pages/cuentas').then((m) => m.CuentasPage) },
       { path: 'categorias', loadComponent: () => import('./pages/categorias').then((m) => m.CategoriasPage) },
     ],

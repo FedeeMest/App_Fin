@@ -10,6 +10,7 @@ export interface Evento {
   origenId: number; nroCuota: number | null; cuentaId: number | null; categoriaId: number | null;
   descripcion: string; monto: number; detalle?: string;
   confirmado: boolean; // ya existe un movimiento real que lo confirma
+  tarjeta: boolean; // cuota de una compra con tarjeta: se paga con el resumen, no una por una
 }
 
 /**
@@ -25,12 +26,12 @@ export async function eventosPrevistos(em: EntityManager, usuarioId: number, des
       eventos.push({
         fecha: f, tipo: r.tipo, origen: 'RECURRENTE', origenId: r.id, nroCuota: null,
         cuentaId: r.cuenta?.id ?? null, categoriaId: r.categoria?.id ?? null,
-        descripcion: r.descripcion, monto: Number(r.monto), confirmado: false,
+        descripcion: r.descripcion, monto: Number(r.monto), confirmado: false, tarjeta: false,
       });
     }
   }
 
-  const compras = await em.find(CompraCuotas, { usuario: usuarioId });
+  const compras = await em.find(CompraCuotas, { usuario: usuarioId }, { populate: ['cuenta'] });
   for (const c of compras) {
     for (let k = 1; k <= c.cantidad_cuotas; k++) {
       const f = vencimiento(c, k);
@@ -38,7 +39,7 @@ export async function eventosPrevistos(em: EntityManager, usuarioId: number, des
         eventos.push({
           fecha: f, tipo: 'GASTO', origen: 'CUOTA', origenId: c.id, nroCuota: k,
           cuentaId: c.cuenta?.id ?? null, categoriaId: c.categoria?.id ?? null,
-          descripcion: c.descripcion, monto: montoCuota(c, k), detalle: `Cuota ${k}/${c.cantidad_cuotas}`, confirmado: false,
+          descripcion: c.descripcion, monto: montoCuota(c, k), detalle: `Cuota ${k}/${c.cantidad_cuotas}`, confirmado: false, tarjeta: c.cuenta?.tipo === 'TARJETA',
         });
       }
     }

@@ -59,6 +59,7 @@ calendarioRouter.post('/confirmar', async (req: AuthRequest, res: Response) => {
   } else if (origen === 'CUOTA') {
     const c = await em.findOne(CompraCuotas, { id: Number(id), usuario: usuarioId }, { populate: ['cuenta', 'categoria'] });
     if (!c) return res.status(404).json({ message: 'Compra no encontrada' });
+    if (c.cuenta?.tipo === 'TARJETA') return res.status(400).json({ message: 'Las cuotas de una tarjeta se pagan con el resumen de la tarjeta' });
     const k = Number(nro_cuota);
     if (!Number.isInteger(k) || k < 1 || k > c.cantidad_cuotas) return res.status(400).json({ message: 'nro_cuota inválido' });
     if (await em.findOne(Transaccion, { compra_cuotas: c.id, nro_cuota: k })) return res.status(409).json({ message: 'Ya fue confirmada' });

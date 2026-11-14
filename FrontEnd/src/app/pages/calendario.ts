@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { DatosService } from '../core/datos.service';
 import { ToastService } from '../core/toast.service';
@@ -14,7 +15,7 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 @Component({
   selector: 'app-calendario',
-  imports: [MoneyPipe, DatePipe, FormsModule, SheetComponent],
+  imports: [MoneyPipe, DatePipe, FormsModule, RouterLink, SheetComponent],
   template: `
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Calendario</h1>
@@ -77,7 +78,11 @@ const DIAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
             <span class="font-semibold" [class.text-emerald-600]="e.tipo === 'INGRESO'" [class.text-rose-600]="e.tipo === 'GASTO'">
               {{ e.tipo === 'INGRESO' ? '+' : '-' }}{{ e.monto | money }}
             </span>
-            @if (!e.confirmado) { <button class="btn !px-3 !py-1.5 text-sm" (click)="abrirConfirmar(e)">Confirmar</button> }
+            @if (!e.confirmado) {
+              @if (e.tarjeta && e.cuentaId) {
+                <a class="btn-ghost !px-3 !py-1.5 text-sm" [routerLink]="['/tarjetas', e.cuentaId]" [queryParams]="{ mes: e.fecha.slice(0, 7) }">Ver resumen</a>
+              } @else { <button class="btn !px-3 !py-1.5 text-sm" (click)="abrirConfirmar(e)">Confirmar</button> }
+            }
           </div>
         </div>
       } @empty { <p class="py-3 text-center text-sm text-slate-400">Sin eventos este día</p> }

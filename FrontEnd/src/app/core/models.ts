@@ -2,7 +2,16 @@ export type TipoTransaccion = 'INGRESO' | 'GASTO' | 'TRANSFERENCIA';
 export type TipoCategoria = 'INGRESO' | 'GASTO';
 export type TipoCuenta = 'EFECTIVO' | 'BANCO' | 'BILLETERA' | 'TARJETA';
 
-export interface Cuenta { id: number; nombre: string; tipo: TipoCuenta; moneda: string; saldo: number }
+export interface Cuenta {
+  id: number; nombre: string; tipo: TipoCuenta; moneda: string; saldo: number;
+  // Solo tarjetas
+  limite_credito?: number | null; dia_cierre?: number | null; dia_vencimiento?: number | null;
+  deuda_cuotas?: number; consumos_sin_pagar?: number; disponible?: number | null;
+}
+export interface ItemResumen { compraId: number; descripcion: string; nro_cuota: number; cantidad_cuotas: number; monto: number; vencimiento: string; pagada: boolean }
+export interface ResumenTarjeta {
+  cuenta: Cuenta; mes: string; items: ItemResumen[]; total: number; pagado: number; pendiente: number; vencimiento: string | null;
+}
 export interface Categoria { id: number; nombre: string; tipo: TipoCategoria; icono?: string; color?: string }
 export interface Transaccion {
   id: number; tipo: TipoTransaccion; monto: string; fecha: string; nota?: string;
@@ -15,7 +24,7 @@ export interface Resumen { mes: string; ingresos: number; gastos: number; balanc
 
 export interface CompraCuotas {
   id: number; descripcion: string; monto_total: number; cantidad_cuotas: number; fecha_primera_cuota: string;
-  cuenta: { id: number; nombre: string } | null; categoria: { id: number; nombre: string } | null;
+  cuenta: { id: number; nombre: string; tipo?: TipoCuenta } | null; categoria: { id: number; nombre: string } | null;
   cuotas_pagadas: number; cuotas_restantes: number; monto_cuota: number; monto_restante: number;
   proximo_vencimiento: string | null; finalizada: boolean;
 }
@@ -32,7 +41,7 @@ export interface Recurrente {
 }
 export interface EventoCalendario {
   fecha: string; tipo: TipoCategoria; origen: 'RECURRENTE' | 'CUOTA'; origenId: number; nroCuota: number | null;
-  cuentaId: number | null; descripcion: string; monto: number; detalle?: string; confirmado: boolean;
+  cuentaId: number | null; descripcion: string; monto: number; detalle?: string; confirmado: boolean; tarjeta?: boolean;
 }
 export interface Calendario {
   mes: string; eventos: EventoCalendario[]; total_ingresos: number; total_gastos: number; balance_previsto: number;

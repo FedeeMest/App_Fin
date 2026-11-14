@@ -24,7 +24,8 @@ const cuentas = (await call('GET', '/cuentas')).j; ok(cuentas.length === 1 && cu
 const cats = (await call('GET', '/categorias')).j; ok(cats.length === 9, 'semilla: 9 categorías', cats.length);
 const catSuper = cats.find((c) => c.nombre === 'Supermercado'), catSueldo = cats.find((c) => c.nombre === 'Sueldo'), catAlq = cats.find((c) => c.nombre === 'Alquiler');
 const efectivo = cuentas[0].id;
-r = await call('POST', '/cuentas', { nombre: 'Visa', tipo: 'TARJETA', saldo_inicial: 0 }); const visa = r.j.id;
+// 'Visa' es una cuenta de crédito simple (sin ciclo de tarjeta): sus cuotas se confirman una por una
+r = await call('POST', '/cuentas', { nombre: 'Visa', tipo: 'BILLETERA', saldo_inicial: 0 }); const visa = r.j.id;
 r = await call('POST', '/cuentas', { nombre: 'Banco', tipo: 'BANCO', saldo_inicial: 50000 }); const banco = r.j.id; ok(r.s === 201, 'crear cuenta', r);
 
 // Transacciones
@@ -130,3 +131,40 @@ tok = tokFede;
 const cuotaConf = await call('POST', '/calendario/confirmar', { origen: 'CUOTA', id: compra, nro_cuota: 1 });
 r = await call('PUT', `/transacciones/${cuotaConf.j.id}`, { tipo: 'INGRESO', monto: 30000, fecha: hoy, cuentaId: visa }); ok(r.s === 400, 'pago confirmado no cambia de tipo', r);
 r = await call('PUT', `/transacciones/${cuotaConf.j.id}`, { tipo: 'GASTO', monto: 31000, fecha: hoy, cuentaId: visa, categoriaId: catSuper.id }); ok(r.s === 200, 'pago confirmado sí admite corregir el monto', r);
+
+// ---------- Tarjetas de crédito: límite, resumen y pago del resumen ----------
+const aux = Number((await call('GET', '/cuentas')).j.find((c) => c.nombre === 'Banco').saldo);
+r = await call('POST', '/cuentas', { nombre: 'Mala', tipo: 'TARJETA', dia_cierre: 40 }); ok(r.s === 400, 'tarjeta con día de cierre 40 -> 400', r);
+r = await call('POST', '/cuentas', { nombre: 'Master', tipo: 'TARJETA', limite_credito: 300000, dia_cierre: 20, dia_vencimiento: 5 }); ok(r.s === 201, 'crear tarjeta con límite y días', r); const master = r.j.id;
+r = await call('GET', '/cuentas'); let m = r.j.find((c) => c.id === master);
+ok(m.limite_credito === 300000 && m.dia_cierre === 20 && m.dia_vencimiento === 5 && m.disponible === 300000 && m.deuda_cuotas === 0, 'tarjeta nueva: límite disponible completo', m);
+ok(r.j.find((c) => c.nombre === 'Banco').limite_credito === undefined, 'cuentas que no son tarjeta no traen límite', null);
+r = await call('POST', '/cuotas', { descripcion: 'TV', monto_total: 120000, cantidad_cuotas: 6, fecha_primera_cuota: `${mes}-28`, cuentaId: master, categoriaId: catSuper.id }); ok(r.s === 201, 'compra en 6 cuotas con tarjeta', r);
+r = await call('POST', '/cuotas', { descripcion: 'Celu', monto_total: 30000, cantidad_cuotas: 3, fecha_primera_cuota: `${mes}-28`, cuentaId: master, categoriaId: catSuper.id }); ok(r.s === 201, 'segunda compra con tarjeta', r);
+r = await call('GET', '/cuentas'); m = r.j.find((c) => c.id === master);
+ok(m.deuda_cuotas === 150000 && m.disponible === 150000, 'la compra baja el límite por el total financiado (300000-150000)', m);
+r = await call('GET', '/cuotas'); const tv = r.j.find((c) => c.descripcion === 'TV');
+ok(tv.cuotas_pagadas === 0 && tv.cuotas_restantes === 6 && tv.monto_restante === 120000 && tv.cuenta.tipo === 'TARJETA', 'cuotas de tarjeta no se dan por pagas hasta pagar el resumen', tv);
+r = await call('POST', '/calendario/confirmar', { origen: 'CUOTA', id: tv.id, nro_cuota: 1 }); ok(r.s === 400, 'no se confirma una cuota de tarjeta suelta', r);
+r = await call('GET', `/calendario?mes=${mes}`); ok(r.j.eventos.filter((e) => e.origen === 'CUOTA' && e.tarjeta).length >= 2, 'el calendario marca las cuotas de tarjeta', r.j.eventos);
+r = await call('GET', `/cuentas/${master}/resumen?mes=${mes}`);
+ok(r.j.items.length === 2 && r.j.total === 30000 && r.j.pendiente === 30000 && r.j.pagado === 0, 'el resumen del mes junta las cuotas solas (20000+10000)', r.j);
+r = await call('GET', `/cuentas/${master}/resumen?mes=${sumarMes(mes, 3)}`); ok(r.j.items.length === 1 && r.j.total === 20000, 'resumen de 3 meses después: solo sigue la TV', r.j);
+r = await call('GET', `/cuentas/${banco}/resumen`); ok(r.s === 400, 'resumen de una cuenta que no es tarjeta -> 400', r);
+r = await call('POST', `/cuentas/${master}/resumen/pagar`, { mes, cuentaOrigenId: master }); ok(r.s === 400, 'no se paga el resumen con la misma tarjeta', r);
+r = await call('POST', `/cuentas/${master}/resumen/pagar`, { mes: 'x', cuentaOrigenId: banco }); ok(r.s === 400, 'pagar con mes inválido -> 400', r);
+r = await call('POST', `/cuentas/${master}/resumen/pagar`, { mes, cuentaOrigenId: banco }); ok(r.s === 201 && r.j.cuotas_pagadas === 2 && r.j.total === 30000, 'pagar el resumen confirma todas sus cuotas', r);
+r = await call('POST', `/cuentas/${master}/resumen/pagar`, { mes, cuentaOrigenId: banco }); ok(r.s === 409, 'pagar dos veces el mismo resumen -> 409', r);
+r = await call('GET', '/cuentas'); m = r.j.find((c) => c.id === master);
+ok(Number(r.j.find((c) => c.nombre === 'Banco').saldo) === aux - 30000, 'el banco baja lo que sumó el resumen', r.j);
+ok(m.saldo === 0 && m.deuda_cuotas === 120000 && m.disponible === 180000, 'la tarjeta queda en 0 y el límite se libera con lo pagado', m);
+r = await call('GET', `/cuentas/${master}/resumen?mes=${mes}`); ok(r.j.pendiente === 0 && r.j.pagado === 30000 && r.j.items.every((i) => i.pagada), 'el resumen figura pagado', r.j);
+r = await call('GET', '/cuotas'); const tv2 = r.j.find((c) => c.descripcion === 'TV'); ok(tv2.cuotas_pagadas === 1 && tv2.cuotas_restantes === 5 && tv2.monto_restante === 100000, 'la compra avanza una cuota', tv2);
+r = await call('GET', `/transacciones/resumen?mes=${mes}`); ok(r.j.porCategoria.Supermercado >= 30000, 'las cuotas pagadas cuentan como gasto por categoría', r.j.porCategoria);
+r = await call('PUT', `/cuentas/${master}`, { limite_credito: 500000, dia_cierre: 25 }); ok(r.s === 200, 'editar límite y día de cierre', r);
+r = await call('GET', '/cuentas'); m = r.j.find((c) => c.id === master); ok(m.limite_credito === 500000 && m.dia_cierre === 25 && m.disponible === 380000, 'el límite editado se refleja', m);
+tok = ''; r = await call('POST', '/auth/login', { username: 'otro', password: 'password123' }); tok = r.j.token;
+r = await call('GET', `/cuentas/${master}/resumen`); ok(r.s === 404, 'otro usuario no ve el resumen', r);
+r = await call('POST', `/cuentas/${master}/resumen/pagar`, { mes, cuentaOrigenId: banco }); ok(r.s === 404, 'otro usuario no paga resúmenes ajenos', r);
+tok = tokFede;
+function sumarMes(ym, n) { const [y, mm] = ym.split('-').map(Number); const d = new Date(y, mm - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }

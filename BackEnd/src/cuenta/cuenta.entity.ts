@@ -23,4 +23,16 @@ export class Cuenta extends BaseEntity {
 
   @Property({ default: true })
   activa: boolean = true;
+
+  // --- Solo para TARJETA ---
+  // Límite de compra de la tarjeta
+  @Property({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+  limite_credito?: string;
+
+  // Día del mes en que cierra el resumen y día en que vence (1-31)
+  @Property({ nullable: true })
+  dia_cierre?: number;
+
+  @Property({ nullable: true })
+  dia_vencimiento?: number;
 }

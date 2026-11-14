@@ -26,19 +26,30 @@ export function hoy(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: process.env.APP_TZ || 'America/Argentina/Buenos_Aires' });
 }
 
-/** Estado calculado de una compra a la fecha `ref`. Una cuota se considera paga si ya venció. */
-export function estadoCompra(c: CompraCuotas, ref = hoy()) {
+/**
+ * Estado de una compra a la fecha `ref`.
+ * - Compra con tarjeta (se pasa `confirmadas`): una cuota está paga cuando se pagó el resumen que la incluye.
+ * - Sin tarjeta: se considera paga cuando ya venció.
+ */
+export function estadoCompra(c: CompraCuotas, ref = hoy(), confirmadas?: Set<number>) {
   let pagadas = 0;
-  for (let k = 1; k <= c.cantidad_cuotas; k++) if (vencimiento(c, k) <= ref) pagadas = k;
-  const restantes = c.cantidad_cuotas - pagadas;
   let montoRestante = 0;
-  for (let k = pagadas + 1; k <= c.cantidad_cuotas; k++) montoRestante += montoCuota(c, k);
+  let proximo: string | null = null;
+  for (let k = 1; k <= c.cantidad_cuotas; k++) {
+    const paga = confirmadas ? confirmadas.has(k) : vencimiento(c, k) <= ref;
+    if (paga) pagadas++;
+    else {
+      montoRestante += montoCuota(c, k);
+      proximo ??= vencimiento(c, k);
+    }
+  }
+  const restantes = c.cantidad_cuotas - pagadas;
   return {
     cuotas_pagadas: pagadas,
     cuotas_restantes: restantes,
     monto_cuota: montoCuota(c, 1),
     monto_restante: Number(montoRestante.toFixed(2)),
-    proximo_vencimiento: restantes > 0 ? vencimiento(c, pagadas + 1) : null,
+    proximo_vencimiento: proximo,
     finalizada: restantes === 0,
   };
 }

@@ -17,3 +17,11 @@
 
 ## Backend asociado
 `GET /transacciones` acepta `tipo` y `q`; nuevo `PUT /transacciones/:id`.
+
+## Tarjetas de crédito y cuotas
+- Una cuenta `TARJETA` tiene límite, día de cierre y día de vencimiento.
+- Una compra en cuotas con tarjeta **baja el límite por el total financiado** desde el día de la compra; el límite se libera a medida que se pagan los resúmenes.
+- Las cuotas **no se pagan una por una**: aparecen solas en el resumen del mes (`GET /cuentas/:id/resumen?mes=`).
+- "Pagar resumen" (`POST /cuentas/:id/resumen/pagar`) registra de una vez todas las cuotas del mes como gasto de la tarjeta (con su categoría) y una transferencia desde la cuenta elegida; la tarjeta queda en 0.
+- Al cargar la compra, la 1.ª cuota se sugiere según el cierre: si comprás hasta el día de cierre entra en ese resumen, si no, en el siguiente.
+- Compras sin tarjeta mantienen el comportamiento anterior (se confirman desde el calendario).

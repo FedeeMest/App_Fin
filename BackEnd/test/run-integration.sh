@@ -28,8 +28,8 @@ const orm = await MikroORM.init({
   migrations: { path: '$TMP/dist/src/migrations', glob: '!(*.d).{js,ts}', snapshot: false },
 });
 const pendientes = await orm.migrator.getPendingMigrations();
-const ok = pendientes.length >= 1 && pendientes[0].name.includes('inicial');
-console.log((ok ? 'PASS' : 'FAIL') + ' - el migrador descubre la migración inicial (' + pendientes.map((m) => m.name).join(', ') + ')');
+const ok = pendientes.length >= 2 && pendientes[0].name.includes('inicial') && pendientes[1].name.includes('tarjetas');
+console.log((ok ? 'PASS' : 'FAIL') + ' - el migrador descubre las migraciones (inicial, tarjetas) (' + pendientes.map((m) => m.name).join(', ') + ')');
 await orm.close();
 JS
 (cd "$TMP" && node migraciones.mjs) | tee "$TMP/mig.txt"

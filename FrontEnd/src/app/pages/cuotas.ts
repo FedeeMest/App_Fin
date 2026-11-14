@@ -1,19 +1,20 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { DatosService } from '../core/datos.service';
 import { ToastService } from '../core/toast.service';
 
 import { MoneyPipe } from '../core/money.pipe';
 import { SheetComponent } from '../ui/sheet';
+import { primerVencimiento } from '../core/tarjeta.util';
 
 import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
 
 @Component({
   selector: 'app-cuotas',
-  imports: [MoneyPipe, DatePipe, FormsModule, SheetComponent],
+  imports: [MoneyPipe, DatePipe, FormsModule, RouterLink, SheetComponent],
   template: `
     <div class="mb-4 flex items-center justify-between">
       <h1 class="text-xl font-bold">Compras en cuotas</h1>
@@ -61,6 +62,7 @@ import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
             <div class="min-w-0">
               <div class="truncate font-medium">{{ c.descripcion }}</div>
               <div class="truncate text-xs text-slate-500">{{ c.cuenta?.nombre ?? 'Sin cuenta' }} · total {{ c.monto_total | money }}</div>
+              @if (c.cuenta?.tipo === 'TARJETA') { <a [routerLink]="['/tarjetas', c.cuenta!.id]" class="text-xs text-brand-700">Se paga con el resumen de la tarjeta ›</a> }
             </div>
             <button class="text-slate-300 hover:text-rose-600" (click)="borrar(c)" aria-label="Eliminar">✕</button>
           </div>
@@ -95,12 +97,22 @@ import { Categoria, CompraCuotas, Cuenta, ResumenCuotas } from '../core/models';
           @if (f.monto_total && f.cantidad_cuotas) {
             <p class="text-sm text-slate-500">≈ {{ f.monto_total / f.cantidad_cuotas | money }} por cuota</p>
           }
-          <div><label class="label">Vencimiento de la 1.ª cuota</label><input class="input" type="date" name="fp" [(ngModel)]="f.fecha_primera_cuota" required /></div>
           <div><label class="label">Tarjeta / cuenta</label>
-            <select class="input" name="c" [(ngModel)]="f.cuentaId">
+            <select class="input" name="c" [(ngModel)]="f.cuentaId" (ngModelChange)="recalcular()">
               <option [ngValue]="null">Sin cuenta</option>
-              @for (c of cuentas(); track c.id) { <option [ngValue]="c.id">{{ c.nombre }}</option> }
+              @for (c of cuentas(); track c.id) { <option [ngValue]="c.id">{{ c.nombre }}{{ c.tipo === 'TARJETA' ? ' (tarjeta)' : '' }}</option> }
             </select></div>
+          @if (tarjetaElegida(); as t) {
+            <div><label class="label">Fecha de la compra</label><input class="input" type="date" name="fc" [(ngModel)]="f.fecha_compra" (ngModelChange)="recalcular()" /></div>
+            <div><label class="label">La 1.ª cuota vence</label><input class="input" type="date" name="fp" [(ngModel)]="f.fecha_primera_cuota" required /></div>
+            <p class="text-xs text-slate-500">
+              @if (t.dia_cierre) { Calculado con el cierre de {{ t.nombre }} (día {{ t.dia_cierre }}). }
+              @else { Cargá el día de cierre en la tarjeta para que se calcule solo. }
+              Las cuotas aparecerán solas en cada resumen y bajan tu límite desde hoy.
+            </p>
+          } @else {
+            <div><label class="label">Vencimiento de la 1.ª cuota</label><input class="input" type="date" name="fp" [(ngModel)]="f.fecha_primera_cuota" required /></div>
+          }
           <div><label class="label">Categoría</label>
             <select class="input" name="cat" [(ngModel)]="f.categoriaId">
               <option [ngValue]="null">Sin categoría</option>
@@ -128,6 +140,8 @@ export class CuotasPage {
   modal = signal(false);
   error = signal('');
 
+  // `f` es un objeto simple (no una señal), por eso es un método y no un computed
+  tarjetaElegida() { return this.cuentas().find((c) => c.id === this.f.cuentaId && c.tipo === 'TARJETA') ?? null; }
   visibles = computed(() => this.compras().filter((c) => c.finalizada === this.verFinalizadas()));
   maximo = computed(() => Math.max(0, ...(this.resumen()?.proyeccion.map((p) => p.total) ?? [])));
   f = this.vacio();
@@ -140,8 +154,15 @@ export class CuotasPage {
   }
 
   private vacio() {
-    return { descripcion: '', monto_total: null as number | null, cantidad_cuotas: 12 as number | null,
-      fecha_primera_cuota: new Date().toLocaleDateString('en-CA'), cuentaId: null as number | null, categoriaId: null as number | null };
+    const hoy = new Date().toLocaleDateString('en-CA');
+    return { descripcion: '', monto_total: null as number | null, cantidad_cuotas: 12 as number | null, fecha_compra: hoy,
+      fecha_primera_cuota: hoy, cuentaId: null as number | null, categoriaId: null as number | null };
+  }
+
+  /** Con tarjeta, la 1.ª cuota se sugiere según el cierre; se puede ajustar a mano. */
+  recalcular() {
+    const t = this.tarjetaElegida();
+    if (t?.dia_cierre && this.f.fecha_compra) this.f.fecha_primera_cuota = primerVencimiento(this.f.fecha_compra, t.dia_cierre, t.dia_vencimiento ?? null);
   }
 
   cargar() {
@@ -157,8 +178,9 @@ export class CuotasPage {
   abrir() { this.f = this.vacio(); this.error.set(''); this.modal.set(true); }
 
   guardar() {
-    this.api.crearCompraCuotas(this.f).subscribe({
-      next: () => { this.modal.set(false); this.cargar(); this.toast.mostrar('Compra en cuotas guardada'); },
+    const { fecha_compra, ...datos } = this.f;
+    this.api.crearCompraCuotas(datos).subscribe({
+      next: () => { this.modal.set(false); this.cargar(); this.datos.notificar(); this.toast.mostrar('Compra en cuotas guardada'); },
       error: (e) => this.error.set(e.error?.message ?? 'No se pudo guardar'),
     });
   }
